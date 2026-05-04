@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth.js required models ──────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts        Account[]
+  sessions        Session[]
+  familyMembers   FamilyMember[]
+  invitationsSent Invitation[]    @relation("InvitedBy")
+  createdEvents   CalendarEvent[]
+  eventAttendees  EventAttendee[]
+  todoLists       TodoList[]
+  todoItems       TodoItem[]      @relation("AssignedTo")
+  groceryLists    GroceryList[]
+  groceryItems    GroceryItem[]
+  recipes         Recipe[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Family models ────────────────────────────────────────────────────────────
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members      FamilyMember[]
+  invitations  Invitation[]
+  events       CalendarEvent[]
+  todoLists    TodoList[]
+  groceryLists GroceryList[]
+  mealPlans    MealPlan[]
+  recipes      Recipe[]
+}
+
+enum MemberRole {
+  admin
+  member
+}
+
+model FamilyMember {
+  id       String     @id @default(cuid())
+  familyId String
+  userId   String
+  role     MemberRole @default(member)
+  joinedAt DateTime   @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  familyId    String
+  invitedById String
+  email       String
+  token       String           @unique @default(cuid())
+  status      InvitationStatus @default(pending)
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+}
+
+// ─── Calendar models ──────────────────────────────────────────────────────────
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  familyId    String
+  createdById String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  allDay      Boolean   @default(false)
+  color       String?
+  recurrence  String?   // RRULE string for repeating events
+  createdAt   DateTime  @default(now())
+
+  family    Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  attendees EventAttendee[]
+}
+
+model EventAttendee {
+  eventId String
+  userId  String
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+}
+
+// ─── Todo models ──────────────────────────────────────────────────────────────
+
+model TodoList {
+  id          String   @id @default(cuid())
+  familyId    String
+  createdById String
+  title       String
+  createdAt   DateTime @default(now())
+
+  family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  items     TodoItem[]
+}
+
+model TodoItem {
+  id           String    @id @default(cuid())
+  listId       String
+  assignedToId String?
+  title        String
+  completed    Boolean   @default(false)
+  dueDate      DateTime?
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  list       TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  assignedTo User?    @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+}
+
+// ─── Grocery models ───────────────────────────────────────────────────────────
+
+model GroceryList {
+  id          String   @id @default(cuid())
+  familyId    String
+  createdById String
+  title       String
+  createdAt   DateTime @default(now())
+
+  family    Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  items     GroceryItem[]
+}
+
+model GroceryItem {
+  id        String   @id @default(cuid())
+  listId    String
+  addedById String
+  name      String
+  quantity  String?
+  category  String?
+  checked   Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  list    GroceryList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  addedBy User        @relation(fields: [addedById], references: [id], onDelete: Cascade)
+}
+
+// ─── Meal planning models ─────────────────────────────────────────────────────
+
+model MealPlan {
+  id        String   @id @default(cuid())
+  familyId  String
+  weekStart DateTime // Always midnight UTC on a Monday
+  createdAt DateTime @default(now())
+
+  family  Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  entries MealPlanEntry[]
+
+  @@unique([familyId, weekStart])
+}
+
+enum MealType {
+  breakfast
+  lunch
+  dinner
+  snack
+}
+
+model MealPlanEntry {
+  id        String   @id @default(cuid())
+  planId    String
+  day       Int      // 0 = Monday … 6 = Sunday
+  mealType  MealType
+  title     String
+  notes     String?
+  recipeUrl String?
+
+  plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model Recipe {
+  id          String   @id @default(cuid())
+  familyId    String
+  createdById String
+  title       String
+  description String?
+  url         String?
+  createdAt   DateTime @default(now())
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
