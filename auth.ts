@@ -1,29 +1,22 @@
 import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
-import Google from "next-auth/providers/google"
-import Resend from "next-auth/providers/resend"
 import { prisma } from "@/lib/prisma"
+import { authConfig } from "./auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    Resend({
-      apiKey: process.env.RESEND_API_KEY!,
-      from: process.env.RESEND_FROM ?? "Family Planner <noreply@example.com>",
-    }),
-  ],
+  session: { strategy: "jwt" },
   callbacks: {
-    session({ session, user }) {
-      // Expose the database user ID in the session
-      session.user.id = user.id
+    ...authConfig.callbacks,
+    jwt({ token, user }) {
+      // On first sign-in, persist the DB user ID into the JWT
+      if (user) token.id = user.id
+      return token
+    },
+    session({ session, token }) {
+      session.user.id = token.id as string
       return session
     },
-  },
-  pages: {
-    signIn: "/login",
   },
 })
