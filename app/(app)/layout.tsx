@@ -1,5 +1,6 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
+import { getFamilyForUser } from "@/lib/family"
 import { Sidebar } from "@/components/nav/sidebar"
 import { BottomTabBar } from "@/components/nav/bottom-tab-bar"
 import { TopHeader } from "@/components/nav/top-header"
@@ -7,6 +8,9 @@ import { TopHeader } from "@/components/nav/top-header"
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session) redirect("/login")
+
+  const membership = await getFamilyForUser(session.user.id)
+  if (!membership) redirect("/onboarding")
 
   return (
     <div className="flex h-screen bg-background">

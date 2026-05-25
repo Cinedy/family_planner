@@ -11,7 +11,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig.callbacks,
     jwt({ token, user }) {
       // On first sign-in, persist the DB user ID into the JWT
-      if (user) token.id = user.id
+      if (user?.id) token.id = user.id
       return token
     },
     session({ session, token }) {
