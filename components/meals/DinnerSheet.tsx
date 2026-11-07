@@ -1,0 +1,245 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { ChevronLeft, ExternalLink } from "lucide-react"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+} from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { setDinner, clearDinner } from "@/app/actions/meals"
+import type { SerializedDinnerEntry, SerializedRecipe } from "@/types/meals"
+
+interface DinnerSheetProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  weekStart: string
+  day: number
+  entry: SerializedDinnerEntry | null
+  planId: string | null
+  recipes: SerializedRecipe[]
+  onSet: (entry: SerializedDinnerEntry) => void
+  onClear: () => void
+}
+
+export function DinnerSheet({
+  open,
+  onOpenChange,
+  weekStart,
+  day,
+  entry,
+  planId,
+  recipes,
+  onSet,
+  onClear,
+}: DinnerSheetProps) {
+  const [mode, setMode] = useState<"form" | "picker">("form")
+  const [title, setTitle] = useState("")
+  const [notes, setNotes] = useState("")
+  const [recipeUrl, setRecipeUrl] = useState("")
+  const [isPending, setIsPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setTitle(entry?.title ?? "")
+      setNotes(entry?.notes ?? "")
+      setRecipeUrl(entry?.recipeUrl ?? "")
+      setMode(entry === null && recipes.length > 0 ? "picker" : "form")
+      setConfirmClear(false)
+      setError(null)
+    }
+  }, [open, entry, recipes.length])
+
+  function handleClose() {
+    onOpenChange(false)
+  }
+
+  function handlePickRecipe(recipe: SerializedRecipe) {
+    setTitle(recipe.title)
+    setRecipeUrl(recipe.url ?? "")
+    setMode("form")
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!title.trim()) return
+
+    setIsPending(true)
+    setError(null)
+
+    const fd = new FormData()
+    fd.set("weekStart", weekStart)
+    fd.set("day", String(day))
+    fd.set("title", title.trim())
+    if (notes.trim()) fd.set("notes", notes.trim())
+    if (recipeUrl.trim()) fd.set("recipeUrl", recipeUrl.trim())
+
+    const result = await setDinner(null, fd)
+    setIsPending(false)
+
+    if (result.error) {
+      setError(result.error)
+    } else if (result.item) {
+      onSet(result.item)
+      handleClose()
+    }
+  }
+
+  async function handleClear() {
+    if (!planId || !entry) return
+    setIsPending(true)
+
+    const fd = new FormData()
+    fd.set("planId", planId)
+    fd.set("day", String(day))
+
+    const result = await clearDinner(null, fd)
+    setIsPending(false)
+
+    if (!result.error) {
+      onClear()
+      handleClose()
+    }
+  }
+
+  const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  const labelClass = "text-sm font-medium text-foreground"
+
+  return (
+    <Sheet open={open} onOpenChange={handleClose}>
+      <SheetContent side="bottom" className="max-h-[85dvh] rounded-t-2xl overflow-y-auto pb-safe">
+        {mode === "picker" ? (
+          <>
+            <SheetHeader>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMode("form")}
+                  className="gap-1 -ml-1"
+                >
+                  <ChevronLeft className="size-4" />
+                  {entry === null ? "Skriv inn selv" : "Tilbake"}
+                </Button>
+              </div>
+              <SheetTitle>Velg oppskrift</SheetTitle>
+            </SheetHeader>
+
+            <div className="space-y-0.5 p-4 pt-2">
+              {recipes.map((recipe) => (
+                <button
+                  key={recipe.id}
+                  onClick={() => handlePickRecipe(recipe)}
+                  className="w-full text-left flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted active:bg-muted/80 transition-colors min-h-[44px]"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{recipe.title}</p>
+                    {recipe.description && (
+                      <p className="text-xs text-muted-foreground truncate">{recipe.description}</p>
+                    )}
+                  </div>
+                  {recipe.url && (
+                    <ExternalLink className="size-3.5 text-muted-foreground shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <SheetHeader>
+              <SheetTitle>{entry ? "Rediger middag" : "Legg til middag"}</SheetTitle>
+            </SheetHeader>
+
+            <form onSubmit={handleSubmit} className="space-y-4 p-4 pt-2">
+              <div className="space-y-1">
+                <label className={labelClass}>Hva er til middag?</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Tittel"
+                  className={inputClass}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClass}>Notater (valgfritt)</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ekstra info..."
+                  rows={2}
+                  className={`${inputClass} h-auto resize-none`}
+                />
+              </div>
+
+              {recipes.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full min-h-[44px]"
+                  onClick={() => setMode("picker")}
+                >
+                  Velg fra oppskrifter
+                </Button>
+              )}
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <Button
+                type="submit"
+                className="w-full min-h-[44px]"
+                disabled={isPending || !title.trim()}
+              >
+                {isPending ? (entry ? "Lagrer..." : "Legger til...") : (entry ? "Lagre" : "Legg til")}
+              </Button>
+            </form>
+
+            {entry && planId && (
+              <SheetFooter className="border-t border-border pt-2 px-4 pb-4">
+                {!confirmClear ? (
+                  <Button
+                    variant="destructive"
+                    className="w-full min-h-[44px]"
+                    onClick={() => setConfirmClear(true)}
+                  >
+                    Fjern middag
+                  </Button>
+                ) : (
+                  <div className="w-full space-y-2">
+                    <p className="text-sm text-center text-muted-foreground">Er du sikker?</p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 min-h-[44px]"
+                        onClick={() => setConfirmClear(false)}
+                      >
+                        Avbryt
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="flex-1 min-h-[44px]"
+                        disabled={isPending}
+                        onClick={handleClear}
+                      >
+                        Ja
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </SheetFooter>
+            )}
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Geist } from "next/font/google"
 import "./globals.css"
+import { Providers } from "@/components/providers"
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -28,9 +29,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="nb" className={geist.variable}>
+    <html lang="nb" className={geist.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
