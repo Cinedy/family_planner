@@ -9,54 +9,32 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { addTodoItem } from "@/app/actions/todos"
-import type { FamilyMemberForTodos, SerializedTodoItem } from "@/types/todos"
+import { addTodoItem } from "@/lib/local/mutations"
+import type { FamilyMemberForTodos } from "@/types/todos"
 
 interface TodoSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  listId: string
   familyMembers: FamilyMemberForTodos[]
-  onSuccess: (item: SerializedTodoItem) => void
 }
 
-export function TodoSheet({ open, onOpenChange, listId, familyMembers, onSuccess }: TodoSheetProps) {
+export function TodoSheet({ open, onOpenChange, familyMembers }: TodoSheetProps) {
   const [title, setTitle] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [assignedToId, setAssignedToId] = useState<string | null>(null)
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   function handleClose() {
     onOpenChange(false)
     setTitle("")
     setDueDate("")
     setAssignedToId(null)
-    setError(null)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-
-    setIsPending(true)
-    setError(null)
-
-    const fd = new FormData()
-    fd.set("listId", listId)
-    fd.set("title", title.trim())
-    if (dueDate) fd.set("dueDate", dueDate)
-    if (assignedToId) fd.set("assignedToId", assignedToId)
-
-    const result = await addTodoItem(null, fd)
-    setIsPending(false)
-
-    if (result.error) {
-      setError(result.error)
-    } else if (result.item) {
-      onSuccess(result.item)
-      handleClose()
-    }
+    void addTodoItem({ title, dueDate: dueDate || undefined, assignedToId })
+    handleClose()
   }
 
   const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -127,10 +105,8 @@ export function TodoSheet({ open, onOpenChange, listId, familyMembers, onSuccess
             </div>
           )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button type="submit" className="w-full min-h-[44px]" disabled={isPending || !title.trim()}>
-            {isPending ? "Legger til..." : "Legg til"}
+          <Button type="submit" className="w-full min-h-[44px]" disabled={!title.trim()}>
+            Legg til
           </Button>
         </form>
       </SheetContent>

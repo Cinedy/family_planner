@@ -4,24 +4,17 @@ import { useState } from "react"
 import { UtensilsCrossed, ExternalLink, X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RecipeSheet } from "./RecipeSheet"
-import { deleteRecipe } from "@/app/actions/meals"
+import { deleteRecipe } from "@/lib/local/mutations"
 import type { SerializedRecipe } from "@/types/meals"
 
 interface RecipesTabProps {
   recipes: SerializedRecipe[]
-  onRecipeAdded: (recipe: SerializedRecipe) => void
-  onRecipeDeleted: (id: string) => void
 }
 
-export function RecipesTab({ recipes, onRecipeAdded, onRecipeDeleted }: RecipesTabProps) {
+export function RecipesTab({ recipes }: RecipesTabProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  function handleDelete(id: string) {
-    onRecipeDeleted(id)
-    const fd = new FormData()
-    fd.set("id", id)
-    deleteRecipe(null, fd)
-  }
+  const handleDelete = (id: string) => void deleteRecipe(id)
 
   return (
     <div className="space-y-1">
@@ -84,10 +77,6 @@ export function RecipesTab({ recipes, onRecipeAdded, onRecipeDeleted }: RecipesT
       <RecipeSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        onSuccess={(recipe) => {
-          onRecipeAdded(recipe)
-          setSheetOpen(false)
-        }}
       />
     </div>
   )

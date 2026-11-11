@@ -10,7 +10,8 @@ export default auth((req) => {
   const isPublicRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/invite") ||
-    pathname.startsWith("/api/auth")
+    // API routes check the session themselves and answer 401 (no redirect)
+    pathname.startsWith("/api/")
 
   if (isPublicRoute) return
 
@@ -20,5 +21,7 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.json|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 }

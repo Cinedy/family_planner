@@ -7,7 +7,7 @@ import { format } from "date-fns"
 import { toZonedTime } from "date-fns-tz"
 import { z } from "zod"
 import { createEventSchema } from "@/lib/schemas"
-import { createEvent, updateEvent } from "@/app/actions/calendar"
+import { saveEvent } from "@/lib/local/mutations"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { SerializedEvent, FamilyMemberForCalendar } from "@/types/calendar"
@@ -39,12 +39,12 @@ interface EventFormProps {
   defaultDate: Date
   familyMembers: FamilyMemberForCalendar[]
   currentUserId: string
+  canEdit: boolean
   onSuccess: () => void
 }
 
-export function EventForm({ event, defaultDate, familyMembers, currentUserId, onSuccess }: EventFormProps) {
-  const [isPending, setIsPending] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
+export function EventForm({ event, defaultDate, familyMembers, currentUserId, canEdit, onSuccess }: EventFormProps) {
+  const [error, setError] = useState<string | null>(null)
 
   const defaultValues: Partial<FormValues> = event
     ? {
@@ -79,30 +79,12 @@ export function EventForm({ event, defaultDate, familyMembers, currentUserId, on
   const selectedAttendees = watch("attendeeIds") ?? []
 
   async function onSubmit(data: FormValues) {
-    setIsPending(true)
-    setServerError(null)
-
-    const fd = new FormData()
-    if (event) fd.append("id", event.id)
-    fd.append("title", data.title)
-    if (data.description) fd.append("description", data.description)
-    fd.append("date", data.date)
-    fd.append("allDay", data.allDay ?? "false")
-    if (data.startTime) fd.append("startTime", data.startTime)
-    if (data.endTime) fd.append("endTime", data.endTime)
-    if (data.color) fd.append("color", data.color)
-    fd.append("repeats", data.repeats ?? "false")
-    if (data.recurrenceType) fd.append("recurrenceType", data.recurrenceType)
-    for (const id of data.attendeeIds ?? []) fd.append("attendeeIds", id)
-
-    const action = event ? updateEvent : createEvent
-    const result = await action(null, fd)
-
-    setIsPending(false)
-    if (result.error) {
-      setServerError(result.error)
-    } else if (!result.fieldErrors) {
+    setError(null)
+    try {
+      await saveEvent(event, data)
       onSuccess()
+    } catch {
+      setError("Kunne ikke lagre hendelsen. Prøv igjen.")
     }
   }
 
@@ -239,10 +221,15 @@ export function EventForm({ event, defaultDate, familyMembers, currentUserId, on
         </div>
       )}
 
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!canEdit && (
+        <p className="text-sm text-muted-foreground">
+          Bare den som opprettet hendelsen eller en administrator kan endre den.
+        </p>
+      )}
 
-      <Button type="submit" className="w-full min-h-[44px]" disabled={isPending}>
-        {isPending ? "Lagrer..." : event ? "Lagre" : "Legg til"}
+      <Button type="submit" className="w-full min-h-[44px]" disabled={!canEdit}>
+        {event ? "Lagre" : "Legg til"}
       </Button>
     </form>
   )

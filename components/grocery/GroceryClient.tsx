@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useLiveQuery } from "dexie-react-hooks"
 import { ShoppingCart } from "lucide-react"
 import {
   DndContext,
@@ -22,19 +22,18 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { GroceryItemRow } from "./GroceryItemRow"
 import { GroceryAddInput } from "./GroceryAddInput"
+import { db } from "@/lib/local/db"
 import {
   addGroceryItem,
-  toggleGroceryItem,
+  setGroceryChecked,
   deleteGroceryItem,
   clearCheckedGroceryItems,
   reorderGroceryItems,
-} from "@/app/actions/grocery"
+} from "@/lib/local/mutations"
 import type { SerializedGroceryItem } from "@/types/grocery"
 
-interface GroceryClientProps {
-  listId: string
-  initialItems: SerializedGroceryItem[]
-}
+const byOrder = (a: SerializedGroceryItem, b: SerializedGroceryItem) =>
+  a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
 
 function SortableGroceryItem({
   item,
@@ -65,8 +64,8 @@ function SortableGroceryItem({
   )
 }
 
-export function GroceryClient({ listId, initialItems }: GroceryClientProps) {
-  const [items, setItems] = useState(initialItems)
+export function GroceryClient() {
+  const items = useLiveQuery(async () => (await db.groceryItems.toArray()).sort(byOrder), [], [])
 
   const unchecked = items.filter((i) => !i.checked)
   const checked = items.filter((i) => i.checked)
@@ -80,49 +79,16 @@ export function GroceryClient({ listId, initialItems }: GroceryClientProps) {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-
-    setItems((prev) => {
-      const oldIndex = prev.findIndex((i) => i.id === active.id)
-      const newIndex = prev.findIndex((i) => i.id === over.id)
-      const reordered = arrayMove(prev, oldIndex, newIndex)
-      const fd = new FormData()
-      fd.set("orderedIds", JSON.stringify(reordered.map((i) => i.id)))
-      reorderGroceryItems(null, fd)
-      return reordered
-    })
+    const oldIndex = unchecked.findIndex((i) => i.id === active.id)
+    const newIndex = unchecked.findIndex((i) => i.id === over.id)
+    const reordered = arrayMove(unchecked, oldIndex, newIndex)
+    void reorderGroceryItems([...reordered, ...checked].map((i) => i.id))
   }
 
-  function handleToggle(id: string, newChecked: boolean) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: newChecked } : i)))
-    const fd = new FormData()
-    fd.set("id", id)
-    fd.set("checked", String(newChecked))
-    toggleGroceryItem(null, fd)
-  }
-
-  function handleDelete(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
-    const fd = new FormData()
-    fd.set("id", id)
-    deleteGroceryItem(null, fd)
-  }
-
-  async function handleAdd(name: string) {
-    const fd = new FormData()
-    fd.set("listId", listId)
-    fd.set("name", name)
-    const result = await addGroceryItem(null, fd)
-    if (result.item) {
-      setItems((prev) => [...prev, result.item!])
-    }
-  }
-
-  function handleClearChecked() {
-    setItems((prev) => prev.filter((i) => !i.checked))
-    const fd = new FormData()
-    fd.set("listId", listId)
-    clearCheckedGroceryItems(null, fd)
-  }
+  const handleToggle = (id: string, newChecked: boolean) => void setGroceryChecked(id, newChecked)
+  const handleDelete = (id: string) => void deleteGroceryItem(id)
+  const handleAdd = (name: string) => addGroceryItem(name)
+  const handleClearChecked = () => void clearCheckedGroceryItems()
 
   return (
     <div className="space-y-1">

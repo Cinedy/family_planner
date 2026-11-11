@@ -1,27 +1,23 @@
-import { auth } from "@/auth"
-import { redirect } from "next/navigation"
-import { getFamilyForUser } from "@/lib/family"
 import { Sidebar } from "@/components/nav/sidebar"
 import { BottomTabBar } from "@/components/nav/bottom-tab-bar"
 import { TopHeader } from "@/components/nav/top-header"
+import { SyncProvider } from "@/components/sync/SyncProvider"
+import { ServiceWorkerRegister } from "@/components/sync/ServiceWorkerRegister"
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth()
-  if (!session) redirect("/login")
-
-  const membership = await getFamilyForUser(session.user.id)
-  if (!membership) redirect("/onboarding")
-
+// Static shell: no server data fetching here. proxy.ts guards sign-in, and the
+// data comes from the local database, kept up to date by SyncProvider.
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <TopHeader />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 md:p-6">
-          {children}
+          <SyncProvider>{children}</SyncProvider>
         </main>
       </div>
       <BottomTabBar />
+      <ServiceWorkerRegister />
     </div>
   )
 }

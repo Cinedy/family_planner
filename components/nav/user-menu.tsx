@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Settings, LogOut } from "lucide-react"
 import { handleSignOut } from "@/app/actions/auth"
+import { clearLocalData } from "@/lib/local/sync"
 
 interface UserMenuProps {
   name: string | null | undefined
@@ -42,7 +43,10 @@ export function UserMenu({ name, email, image }: UserMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          onClick={() => handleSignOut()}
+          onClick={async () => {
+            await clearLocalData()
+            await handleSignOut()
+          }}
         >
           <LogOut className="mr-2 h-4 w-4" />
           Logg ut

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useActionState } from "react"
 import {
   Sheet,
   SheetContent,
@@ -11,7 +10,7 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { EventForm } from "./EventForm"
-import { deleteEvent } from "@/app/actions/calendar"
+import { deleteEvent } from "@/lib/local/mutations"
 import type { SerializedEvent, FamilyMemberForCalendar } from "@/types/calendar"
 
 interface EventSheetProps {
@@ -21,6 +20,7 @@ interface EventSheetProps {
   defaultDate: Date
   familyMembers: FamilyMemberForCalendar[]
   currentUserId: string
+  isAdmin: boolean
 }
 
 export function EventSheet({
@@ -30,9 +30,16 @@ export function EventSheet({
   defaultDate,
   familyMembers,
   currentUserId,
+  isAdmin,
 }: EventSheetProps) {
-  const [deleteState, deleteAction] = useActionState(deleteEvent, null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Same rule as the server: only the creator or an admin can change an event
+  const canEdit = !event || event.createdById === currentUserId || isAdmin
+
+  function handleDelete() {
+    if (event) void deleteEvent(event.id)
+    handleClose()
+  }
 
   function handleClose() {
     onOpenChange(false)
@@ -54,10 +61,11 @@ export function EventSheet({
           defaultDate={defaultDate}
           familyMembers={familyMembers}
           currentUserId={currentUserId}
+          canEdit={canEdit}
           onSuccess={handleClose}
         />
 
-        {event && (
+        {event && canEdit && (
           <SheetFooter className="border-t border-border pt-2">
             {!confirmDelete ? (
               <Button
@@ -78,20 +86,14 @@ export function EventSheet({
                   >
                     Avbryt
                   </Button>
-                  <form action={deleteAction} className="flex-1">
-                    <input type="hidden" name="id" value={event.id} />
-                    <Button
-                      type="submit"
-                      variant="destructive"
-                      className="w-full min-h-[44px]"
-                    >
-                      Slett
-                    </Button>
-                  </form>
+                  <Button
+                    variant="destructive"
+                    className="flex-1 min-h-[44px]"
+                    onClick={handleDelete}
+                  >
+                    Slett
+                  </Button>
                 </div>
-                {deleteState?.error && (
-                  <p className="text-sm text-destructive text-center">{deleteState.error}</p>
-                )}
               </div>
             )}
           </SheetFooter>

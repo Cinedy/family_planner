@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { getFamilyForUser } from "@/lib/family"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,12 +11,13 @@ import { Users, Mail } from "lucide-react"
 
 export default async function SettingsPage() {
   const session = await auth()
-  const user = session?.user
+  if (!session?.user?.id) redirect("/login")
+  const user = session.user
 
-  // membership is guaranteed non-null by the (app) layout guard
-  const membership = await getFamilyForUser(session!.user.id)
-  const family = membership!.family
-  const isAdmin = membership!.role === "admin"
+  const membership = await getFamilyForUser(session.user.id)
+  if (!membership) redirect("/onboarding")
+  const family = membership.family
+  const isAdmin = membership.role === "admin"
 
   return (
     <div className="space-y-6 max-w-lg">

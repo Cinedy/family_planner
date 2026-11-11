@@ -10,7 +10,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { setDinner, clearDinner } from "@/app/actions/meals"
+import { setDinner, clearDinner } from "@/lib/local/mutations"
 import type { SerializedDinnerEntry, SerializedRecipe } from "@/types/meals"
 
 interface DinnerSheetProps {
@@ -19,10 +19,7 @@ interface DinnerSheetProps {
   weekStart: string
   day: number
   entry: SerializedDinnerEntry | null
-  planId: string | null
   recipes: SerializedRecipe[]
-  onSet: (entry: SerializedDinnerEntry) => void
-  onClear: () => void
 }
 
 export function DinnerSheet({
@@ -31,17 +28,12 @@ export function DinnerSheet({
   weekStart,
   day,
   entry,
-  planId,
   recipes,
-  onSet,
-  onClear,
 }: DinnerSheetProps) {
   const [mode, setMode] = useState<"form" | "picker">("form")
   const [title, setTitle] = useState("")
   const [notes, setNotes] = useState("")
   const [recipeUrl, setRecipeUrl] = useState("")
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
 
   useEffect(() => {
@@ -51,7 +43,6 @@ export function DinnerSheet({
       setRecipeUrl(entry?.recipeUrl ?? "")
       setMode(entry === null && recipes.length > 0 ? "picker" : "form")
       setConfirmClear(false)
-      setError(null)
     }
   }, [open, entry, recipes.length])
 
@@ -65,46 +56,23 @@ export function DinnerSheet({
     setMode("form")
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-
-    setIsPending(true)
-    setError(null)
-
-    const fd = new FormData()
-    fd.set("weekStart", weekStart)
-    fd.set("day", String(day))
-    fd.set("title", title.trim())
-    if (notes.trim()) fd.set("notes", notes.trim())
-    if (recipeUrl.trim()) fd.set("recipeUrl", recipeUrl.trim())
-
-    const result = await setDinner(null, fd)
-    setIsPending(false)
-
-    if (result.error) {
-      setError(result.error)
-    } else if (result.item) {
-      onSet(result.item)
-      handleClose()
-    }
+    void setDinner({
+      id: entry?.id,
+      weekStart,
+      day,
+      title: title.trim(),
+      notes: notes.trim() || null,
+      recipeUrl: recipeUrl.trim() || null,
+    })
+    handleClose()
   }
 
-  async function handleClear() {
-    if (!planId || !entry) return
-    setIsPending(true)
-
-    const fd = new FormData()
-    fd.set("planId", planId)
-    fd.set("day", String(day))
-
-    const result = await clearDinner(null, fd)
-    setIsPending(false)
-
-    if (!result.error) {
-      onClear()
-      handleClose()
-    }
+  function handleClear() {
+    void clearDinner(weekStart, day)
+    handleClose()
   }
 
   const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -192,18 +160,16 @@ export function DinnerSheet({
                 </Button>
               )}
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
               <Button
                 type="submit"
                 className="w-full min-h-[44px]"
-                disabled={isPending || !title.trim()}
+                disabled={!title.trim()}
               >
-                {isPending ? (entry ? "Lagrer..." : "Legger til...") : (entry ? "Lagre" : "Legg til")}
+                {entry ? "Lagre" : "Legg til"}
               </Button>
             </form>
 
-            {entry && planId && (
+            {entry && (
               <SheetFooter className="border-t border-border pt-2 px-4 pb-4">
                 {!confirmClear ? (
                   <Button
@@ -227,7 +193,6 @@ export function DinnerSheet({
                       <Button
                         variant="destructive"
                         className="flex-1 min-h-[44px]"
-                        disabled={isPending}
                         onClick={handleClear}
                       >
                         Ja

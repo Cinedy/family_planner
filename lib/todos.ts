@@ -26,16 +26,3 @@ export async function getOrCreateTodoList(familyId: string, userId: string) {
     },
   })
 }
-
-export async function getFamilyMembersForTodos(familyId: string) {
-  const members = await prisma.familyMember.findMany({
-    where: { familyId },
-    include: { user: true },
-    orderBy: { joinedAt: "asc" },
-  })
-  return members.map((m) => ({
-    id: m.user.id,
-    name: m.user.name,
-    image: m.user.image,
-  }))
-}

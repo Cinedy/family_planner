@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useLiveQuery } from "dexie-react-hooks"
 import { CheckSquare, Plus } from "lucide-react"
 import {
   DndContext,
@@ -22,15 +23,12 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { TodoItemRow } from "./TodoItemRow"
 import { TodoSheet } from "./TodoSheet"
-import { toggleTodoItem, deleteTodoItem, reorderTodoItems } from "@/app/actions/todos"
-import type { SerializedTodoItem, FamilyMemberForTodos } from "@/types/todos"
+import { db } from "@/lib/local/db"
+import { setTodoCompleted, deleteTodoItem, reorderTodoItems } from "@/lib/local/mutations"
+import type { SerializedTodoItem } from "@/types/todos"
 
-interface TodoClientProps {
-  listId: string
-  initialItems: SerializedTodoItem[]
-  familyMembers: FamilyMemberForTodos[]
-  currentUserId: string
-}
+const byOrder = (a: SerializedTodoItem, b: SerializedTodoItem) =>
+  a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
 
 function SortableTodoItem({
   item,
@@ -61,8 +59,9 @@ function SortableTodoItem({
   )
 }
 
-export function TodoClient({ listId, initialItems, familyMembers, currentUserId }: TodoClientProps) {
-  const [items, setItems] = useState(initialItems)
+export function TodoClient() {
+  const items = useLiveQuery(async () => (await db.todoItems.toArray()).sort(byOrder), [], [])
+  const familyMembers = useLiveQuery(() => db.members.toArray(), [], [])
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const incomplete = items.filter((i) => !i.completed)
@@ -76,32 +75,14 @@ export function TodoClient({ listId, initialItems, familyMembers, currentUserId 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-
-    setItems((prev) => {
-      const oldIndex = prev.findIndex((i) => i.id === active.id)
-      const newIndex = prev.findIndex((i) => i.id === over.id)
-      const reordered = arrayMove(prev, oldIndex, newIndex)
-      const fd = new FormData()
-      fd.set("orderedIds", JSON.stringify(reordered.map((i) => i.id)))
-      reorderTodoItems(null, fd)
-      return reordered
-    })
+    const oldIndex = incomplete.findIndex((i) => i.id === active.id)
+    const newIndex = incomplete.findIndex((i) => i.id === over.id)
+    const reordered = arrayMove(incomplete, oldIndex, newIndex)
+    void reorderTodoItems([...reordered, ...completed].map((i) => i.id))
   }
 
-  function handleToggle(id: string, newCompleted: boolean) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, completed: newCompleted } : i)))
-    const fd = new FormData()
-    fd.set("id", id)
-    fd.set("completed", String(newCompleted))
-    toggleTodoItem(null, fd)
-  }
-
-  function handleDelete(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
-    const fd = new FormData()
-    fd.set("id", id)
-    deleteTodoItem(null, fd)
-  }
+  const handleToggle = (id: string, newCompleted: boolean) => void setTodoCompleted(id, newCompleted)
+  const handleDelete = (id: string) => void deleteTodoItem(id)
 
   return (
     <div className="space-y-1">
@@ -155,12 +136,7 @@ export function TodoClient({ listId, initialItems, familyMembers, currentUserId 
       <TodoSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        listId={listId}
         familyMembers={familyMembers}
-        onSuccess={(item) => {
-          setItems((prev) => [...prev, item])
-          setSheetOpen(false)
-        }}
       />
     </div>
   )

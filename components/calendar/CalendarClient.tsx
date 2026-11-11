@@ -1,30 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useLiveQuery } from "dexie-react-hooks"
 import { addMonths, subMonths, startOfMonth } from "date-fns"
 import { MonthGrid } from "./MonthGrid"
 import { DayEventList } from "./DayEventList"
 import { EventSheet } from "./EventSheet"
-import type { SerializedEvent, FamilyMemberForCalendar } from "@/types/calendar"
+import { db } from "@/lib/local/db"
+import { useMeta } from "@/components/sync/SyncProvider"
+import type { SerializedEvent } from "@/types/calendar"
 
-interface CalendarClientProps {
-  initialEvents: SerializedEvent[]
-  familyMembers: FamilyMemberForCalendar[]
-  currentUserId: string
-  initialYear: number
-  initialMonth: number
-}
-
-export function CalendarClient({
-  initialEvents,
-  familyMembers,
-  currentUserId,
-  initialYear,
-  initialMonth,
-}: CalendarClientProps) {
-  const router = useRouter()
-  const [viewMonth, setViewMonth] = useState(new Date(initialYear, initialMonth, 1))
+export function CalendarClient() {
+  const meta = useMeta()
+  const events = useLiveQuery(() => db.events.toArray(), [], [])
+  const familyMembers = useLiveQuery(() => db.members.toArray(), [], [])
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()))
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<SerializedEvent | null>(null)
@@ -33,9 +23,6 @@ export function CalendarClient({
   function navigateMonth(direction: "prev" | "next") {
     const newMonth = direction === "prev" ? subMonths(viewMonth, 1) : addMonths(viewMonth, 1)
     setViewMonth(startOfMonth(newMonth))
-    const y = newMonth.getFullYear()
-    const m = newMonth.getMonth()
-    router.replace(`/calendar?year=${y}&month=${m}`, { scroll: false })
   }
 
   function handleDayClick(day: Date) {
@@ -63,14 +50,14 @@ export function CalendarClient({
       <MonthGrid
         viewMonth={viewMonth}
         selectedDate={selectedDate}
-        events={initialEvents}
+        events={events}
         onDayClick={handleDayClick}
         onPrevMonth={() => navigateMonth("prev")}
         onNextMonth={() => navigateMonth("next")}
       />
       <DayEventList
         selectedDate={selectedDate}
-        events={initialEvents}
+        events={events}
         onEventClick={handleEventClick}
         onCreateEvent={handleCreateEvent}
       />
@@ -80,7 +67,8 @@ export function CalendarClient({
         event={editingEvent}
         defaultDate={createDate}
         familyMembers={familyMembers}
-        currentUserId={currentUserId}
+        currentUserId={meta.me.id}
+        isAdmin={meta.role === "admin"}
       />
     </div>
   )

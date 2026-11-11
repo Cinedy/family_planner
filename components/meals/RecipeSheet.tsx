@@ -8,51 +8,30 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { addRecipe } from "@/app/actions/meals"
-import type { SerializedRecipe } from "@/types/meals"
+import { addRecipe } from "@/lib/local/mutations"
 
 interface RecipeSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: (recipe: SerializedRecipe) => void
 }
 
-export function RecipeSheet({ open, onOpenChange, onSuccess }: RecipeSheetProps) {
+export function RecipeSheet({ open, onOpenChange }: RecipeSheetProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [url, setUrl] = useState("")
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   function handleClose() {
     onOpenChange(false)
     setTitle("")
     setDescription("")
     setUrl("")
-    setError(null)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-
-    setIsPending(true)
-    setError(null)
-
-    const fd = new FormData()
-    fd.set("title", title.trim())
-    if (description.trim()) fd.set("description", description.trim())
-    if (url.trim()) fd.set("url", url.trim())
-
-    const result = await addRecipe(null, fd)
-    setIsPending(false)
-
-    if (result.error) {
-      setError(result.error)
-    } else if (result.item) {
-      onSuccess(result.item)
-      handleClose()
-    }
+    void addRecipe({ title, description, url })
+    handleClose()
   }
 
   const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -101,10 +80,8 @@ export function RecipeSheet({ open, onOpenChange, onSuccess }: RecipeSheetProps)
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button type="submit" className="w-full min-h-[44px]" disabled={isPending || !title.trim()}>
-            {isPending ? "Legger til..." : "Legg til"}
+          <Button type="submit" className="w-full min-h-[44px]" disabled={!title.trim()}>
+            Legg til
           </Button>
         </form>
       </SheetContent>
