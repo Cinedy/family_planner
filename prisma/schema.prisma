@@ -47,6 +47,8 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+
+  @@index([userId])
 }
 
 model Session {
@@ -56,6 +58,8 @@ model Session {
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -100,6 +104,8 @@ model FamilyMember {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([familyId, userId])
+
+  @@index([userId])
 }
 
 enum InvitationStatus {
@@ -120,6 +126,8 @@ model Invitation {
 
   family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
   invitedBy User   @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([familyId, email])
 }
 
 // ─── Calendar models ──────────────────────────────────────────────────────────
@@ -140,6 +148,8 @@ model CalendarEvent {
   family    Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdBy User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
   attendees EventAttendee[]
+
+  @@index([familyId])
 }
 
 model EventAttendee {
@@ -164,6 +174,8 @@ model TodoList {
   family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdBy User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
   items     TodoItem[]
+
+  @@index([familyId])
 }
 
 model TodoItem {
@@ -178,6 +190,8 @@ model TodoItem {
 
   list       TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
   assignedTo User?    @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([listId])
 }
 
 // ─── Grocery models ───────────────────────────────────────────────────────────
@@ -192,6 +206,8 @@ model GroceryList {
   family    Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdBy User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
   items     GroceryItem[]
+
+  @@index([familyId])
 }
 
 model GroceryItem {
@@ -207,6 +223,8 @@ model GroceryItem {
 
   list    GroceryList @relation(fields: [listId], references: [id], onDelete: Cascade)
   addedBy User        @relation(fields: [addedById], references: [id], onDelete: Cascade)
+
+  @@index([listId])
 }
 
 // ─── Meal planning models ─────────────────────────────────────────────────────
@@ -242,6 +260,8 @@ model MealPlanEntry {
   ingredients String[] @default([])
 
   plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
 }
 
 model Recipe {
@@ -256,4 +276,6 @@ model Recipe {
 
   family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdBy User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
 }
