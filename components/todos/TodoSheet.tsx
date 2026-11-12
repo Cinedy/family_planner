@@ -8,14 +8,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { inputClass, labelClass } from "@/components/ui/form-styles"
 import { cn } from "@/lib/utils"
 import { addTodoItem } from "@/lib/local/mutations"
-import type { FamilyMemberForTodos } from "@/types/todos"
+import type { Member } from "@/types/sync"
 
 interface TodoSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  familyMembers: FamilyMemberForTodos[]
+  familyMembers: Member[]
 }
 
 export function TodoSheet({ open, onOpenChange, familyMembers }: TodoSheetProps) {
@@ -36,9 +37,6 @@ export function TodoSheet({ open, onOpenChange, familyMembers }: TodoSheetProps)
     void addTodoItem({ title, dueDate: dueDate || undefined, assignedToId })
     handleClose()
   }
-
-  const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  const labelClass = "text-sm font-medium text-foreground"
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>

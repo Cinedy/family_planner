@@ -30,9 +30,9 @@ import {
   clearCheckedGroceryItems,
   reorderGroceryItems,
 } from "@/lib/local/mutations"
-import type { SerializedGroceryItem } from "@/types/grocery"
+import type { LocalGroceryItem } from "@/types/sync"
 
-const byOrder = (a: SerializedGroceryItem, b: SerializedGroceryItem) =>
+const byOrder = (a: LocalGroceryItem, b: LocalGroceryItem) =>
   a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
 
 function SortableGroceryItem({
@@ -40,7 +40,7 @@ function SortableGroceryItem({
   onToggle,
   onDelete,
 }: {
-  item: SerializedGroceryItem
+  item: LocalGroceryItem
   onToggle: (id: string, checked: boolean) => void
   onDelete: (id: string) => void
 }) {

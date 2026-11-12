@@ -2,13 +2,16 @@
 
 import { useTheme } from "next-themes"
 import { Moon, Sun } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => setMounted(true), [])
+  // The theme is only known in the browser; render a placeholder on the server
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
 
   if (!mounted) {
     return <div className="size-9" />

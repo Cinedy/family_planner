@@ -11,14 +11,15 @@ import {
 import { Button } from "@/components/ui/button"
 import { EventForm } from "./EventForm"
 import { deleteEvent } from "@/lib/local/mutations"
-import type { SerializedEvent, FamilyMemberForCalendar } from "@/types/calendar"
+import type { SerializedEvent } from "@/types/calendar"
+import type { Member } from "@/types/sync"
 
 interface EventSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   event: SerializedEvent | null
   defaultDate: Date
-  familyMembers: FamilyMemberForCalendar[]
+  familyMembers: Member[]
   currentUserId: string
   isAdmin: boolean
 }

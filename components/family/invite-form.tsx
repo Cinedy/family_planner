@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
 import { inviteByEmail } from "@/app/actions/family"
 import { Button } from "@/components/ui/button"
@@ -15,12 +15,15 @@ function SubmitButton() {
 }
 
 export function InviteForm() {
-  const [state, formAction] = useActionState(inviteByEmail, null)
-  const [resetKey, setResetKey] = useState(0)
-
-  useEffect(() => {
-    if (state?.success) setResetKey((k) => k + 1)
-  }, [state?.success])
+  // Count successful sends; a new count remounts (and so clears) the form
+  const [state, formAction] = useActionState(
+    async (prev: (Awaited<ReturnType<typeof inviteByEmail>> & { sent: number }) | null, formData: FormData) => {
+      const result = await inviteByEmail(prev, formData)
+      return { ...result, sent: (prev?.sent ?? 0) + (result.success ? 1 : 0) }
+    },
+    null
+  )
+  const resetKey = state?.sent ?? 0
 
   return (
     <div className="space-y-2">

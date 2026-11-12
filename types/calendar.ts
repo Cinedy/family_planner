@@ -23,9 +23,3 @@ export type SerializedEvent = {
     image: string | null
   }
 }
-
-export type FamilyMemberForCalendar = {
-  id: string
-  name: string | null
-  image: string | null
-}

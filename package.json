@@ -7,7 +7,9 @@
     "build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "build:local": "prisma generate && next build"
+    "build:local": "prisma generate && next build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
@@ -42,14 +44,17 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.19.2",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "fake-indexeddb": "^6.2.8",
+    "rolldown": "^1.2.19",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   }
 }

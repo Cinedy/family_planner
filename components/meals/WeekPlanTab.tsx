@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { db } from "@/lib/local/db"
 import { DinnerSheet } from "./DinnerSheet"
 import { AddIngredientsSheet, type IngredientSource } from "./AddIngredientsSheet"
-import type { SerializedDinnerEntry, SerializedRecipe } from "@/types/meals"
+import type { SerializedRecipe } from "@/types/meals"
+import type { LocalDinner } from "@/types/sync"
 
 interface WeekPlanTabProps {
   weekStart: string
@@ -24,7 +25,7 @@ export function WeekPlanTab({ weekStart, onWeekChange, recipes }: WeekPlanTabPro
   const [dinnerSheet, setDinnerSheet] = useState<{
     key: number
     day: number
-    entry: SerializedDinnerEntry | null
+    entry: LocalDinner | null
     open: boolean
   } | null>(null)
   const [shopping, setShopping] = useState<{ key: number; title: string; sources: IngredientSource[]; open: boolean } | null>(null)
@@ -46,7 +47,7 @@ export function WeekPlanTab({ weekStart, onWeekChange, recipes }: WeekPlanTabPro
     onWeekChange(format(addDays(monday, direction === "prev" ? -7 : 7), "yyyy-MM-dd"))
   }
 
-  function openSheet(day: number, entry: SerializedDinnerEntry | null) {
+  function openSheet(day: number, entry: LocalDinner | null) {
     setDinnerSheet({ key: ++openCount.current, day, entry, open: true })
   }
 

@@ -7,9 +7,8 @@ import { toZonedTime } from "date-fns-tz"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { SerializedTodoItem } from "@/types/todos"
-
-const TIMEZONE = "Europe/Oslo"
+import { TIMEZONE } from "@/lib/calendar-utils"
+import type { LocalTodoItem } from "@/types/sync"
 
 function DueDatePill({ dueDate }: { dueDate: string }) {
   const zoned = toZonedTime(parseISO(dueDate), TIMEZONE)
@@ -30,7 +29,7 @@ function DueDatePill({ dueDate }: { dueDate: string }) {
 }
 
 interface TodoItemRowProps {
-  item: SerializedTodoItem
+  item: LocalTodoItem
   onToggle: (id: string, completed: boolean) => void
   onDelete: (id: string) => void
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>

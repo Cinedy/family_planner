@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { inputClass, labelClass } from "@/components/ui/form-styles"
 import { deleteRecipe, saveRecipe } from "@/lib/local/mutations"
 import { ingredientsFromText, ingredientsToText } from "@/lib/ingredients"
 import type { SerializedRecipe } from "@/types/meals"
@@ -33,9 +34,6 @@ export function RecipeSheet({ open, onOpenChange, recipe }: RecipeSheetProps) {
     if (recipe) void deleteRecipe(recipe.id)
     onOpenChange(false)
   }
-
-  const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  const labelClass = "text-sm font-medium text-foreground"
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

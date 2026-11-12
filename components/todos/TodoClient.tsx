@@ -25,9 +25,9 @@ import { TodoItemRow } from "./TodoItemRow"
 import { TodoSheet } from "./TodoSheet"
 import { db } from "@/lib/local/db"
 import { setTodoCompleted, deleteTodoItem, reorderTodoItems } from "@/lib/local/mutations"
-import type { SerializedTodoItem } from "@/types/todos"
+import type { LocalTodoItem } from "@/types/sync"
 
-const byOrder = (a: SerializedTodoItem, b: SerializedTodoItem) =>
+const byOrder = (a: LocalTodoItem, b: LocalTodoItem) =>
   a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
 
 function SortableTodoItem({
@@ -35,7 +35,7 @@ function SortableTodoItem({
   onToggle,
   onDelete,
 }: {
-  item: SerializedTodoItem
+  item: LocalTodoItem
   onToggle: (id: string, completed: boolean) => void
   onDelete: (id: string) => void
 }) {

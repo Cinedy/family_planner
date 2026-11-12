@@ -3,10 +3,10 @@
 import { GripVertical, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { SerializedGroceryItem } from "@/types/grocery"
+import type { LocalGroceryItem } from "@/types/sync"
 
 interface GroceryItemRowProps {
-  item: SerializedGroceryItem
+  item: LocalGroceryItem
   onToggle: (id: string, checked: boolean) => void
   onDelete: (id: string) => void
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>

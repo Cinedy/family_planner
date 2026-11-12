@@ -1,16 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { format } from "date-fns"
 import { toZonedTime } from "date-fns-tz"
 import { z } from "zod"
 import { createEventSchema } from "@/lib/schemas"
 import { saveEvent } from "@/lib/local/mutations"
+import { TIMEZONE } from "@/lib/calendar-utils"
 import { Button } from "@/components/ui/button"
+import { inputClass, labelClass } from "@/components/ui/form-styles"
 import { cn } from "@/lib/utils"
-import type { SerializedEvent, FamilyMemberForCalendar } from "@/types/calendar"
+import type { SerializedEvent } from "@/types/calendar"
+import type { Member } from "@/types/sync"
 
 type FormValues = z.infer<typeof createEventSchema>
 
@@ -21,8 +24,6 @@ const COLORS = [
   { hex: "#f59e0b", label: "Gul" },
   { hex: "#8b5cf6", label: "Lilla" },
 ]
-
-const TIMEZONE = "Europe/Oslo"
 
 function getLocalDateStr(isoStr: string): string {
   const zoned = toZonedTime(new Date(isoStr), TIMEZONE)
@@ -37,7 +38,7 @@ function getLocalTimeStr(isoStr: string): string {
 interface EventFormProps {
   event: SerializedEvent | null
   defaultDate: Date
-  familyMembers: FamilyMemberForCalendar[]
+  familyMembers: Member[]
   currentUserId: string
   canEdit: boolean
   onSuccess: () => void
@@ -68,15 +69,18 @@ export function EventForm({ event, defaultDate, familyMembers, currentUserId, ca
         attendeeIds: [currentUserId],
       }
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(createEventSchema),
     defaultValues,
   })
 
-  const isAllDay = watch("allDay") === "true"
-  const doesRepeat = watch("repeats") === "true"
-  const selectedColor = watch("color")
-  const selectedAttendees = watch("attendeeIds") ?? []
+  const [allDay, repeats, selectedColor, attendeeIds] = useWatch({
+    control,
+    name: ["allDay", "repeats", "color", "attendeeIds"],
+  })
+  const isAllDay = allDay === "true"
+  const doesRepeat = repeats === "true"
+  const selectedAttendees = attendeeIds ?? []
 
   async function onSubmit(data: FormValues) {
     setError(null)
@@ -96,9 +100,6 @@ export function EventForm({ event, defaultDate, familyMembers, currentUserId, ca
       setValue("attendeeIds", [...current, userId])
     }
   }
-
-  const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  const labelClass = "text-sm font-medium text-foreground"
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-4 pt-2">

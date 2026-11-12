@@ -10,16 +10,18 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { inputClass, labelClass } from "@/components/ui/form-styles"
 import { setDinner, clearDinner } from "@/lib/local/mutations"
 import { ingredientsFromText, ingredientsToText } from "@/lib/ingredients"
-import type { SerializedDinnerEntry, SerializedRecipe } from "@/types/meals"
+import type { SerializedRecipe } from "@/types/meals"
+import type { LocalDinner } from "@/types/sync"
 
 interface DinnerSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   weekStart: string
   day: number
-  entry: SerializedDinnerEntry | null
+  entry: LocalDinner | null
   recipes: SerializedRecipe[]
   /** Called after saving when the dinner has new or changed ingredients */
   onIngredientsSaved: (dinner: { title: string; ingredients: string[] }) => void
@@ -79,9 +81,6 @@ export function DinnerSheet({
     void clearDinner(weekStart, day)
     handleClose()
   }
-
-  const inputClass = "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  const labelClass = "text-sm font-medium text-foreground"
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
