@@ -107,7 +107,7 @@ export function DayEventList({ selectedDate, events, onEventClick, onCreateEvent
       <button
         onClick={() => onCreateEvent(selectedDate)}
         aria-label="Legg til hendelse"
-        className="fixed bottom-20 right-4 z-40 size-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform md:bottom-6"
+        className="fixed bottom-above-tabbar right-4 z-40 size-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform md:bottom-6"
       >
         <Plus className="size-6" />
       </button>

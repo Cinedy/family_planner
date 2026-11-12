@@ -129,10 +129,36 @@
   }
 }
 
-/* iPhone safe area padding for bottom tab bar */
+/* iPhone safe areas (needs viewport-fit=cover, set in app/layout.tsx) */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Room for the mobile bottom tab bar (56px) plus the home indicator */
+.pb-tabbar {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+.bottom-above-tabbar {
+  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .pb-tabbar {
+    padding-bottom: 1.5rem;
+  }
+  .bottom-above-tabbar {
+    bottom: 1.5rem;
+  }
+}
+
+/* iOS Safari zooms into any field with text under 16px. Unlayered, so it wins over
+   Tailwind's text-sm on touch screens; zoom can then stay enabled for accessibility. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }

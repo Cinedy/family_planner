@@ -8,11 +8,11 @@ import { ServiceWorkerRegister } from "@/components/sync/ServiceWorkerRegister"
 // data comes from the local database, kept up to date by SyncProvider.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-dvh bg-background">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <TopHeader />
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-tabbar md:p-6">
           <SyncProvider>{children}</SyncProvider>
         </main>
       </div>

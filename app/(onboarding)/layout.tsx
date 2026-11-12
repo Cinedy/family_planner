@@ -10,7 +10,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
   if (membership) redirect("/dashboard")
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
+    <div className="min-h-dvh flex items-center justify-center p-4 bg-muted/30">
       {children}
     </div>
   )
