@@ -7,6 +7,7 @@ const id = z.string().min(1).max(64)
 const isoDate = z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Ugyldig dato")
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const day = z.number().int().min(0).max(6)
+const ingredients = z.array(z.string().min(1).max(200)).max(100)
 
 export const syncOpSchema = z.discriminatedUnion("type", [
   // Handleliste
@@ -61,6 +62,8 @@ export const syncOpSchema = z.discriminatedUnion("type", [
     title: z.string().min(1).max(256),
     notes: z.string().max(512).nullable(),
     recipeUrl: z.string().max(2048).nullable(),
+    // Optional so ops queued by an older app version don't wipe ingredients
+    ingredients: ingredients.optional(),
   }),
   z.object({ type: z.literal("dinner.clear"), weekStart: ymd, day }),
   z.object({
@@ -69,8 +72,12 @@ export const syncOpSchema = z.discriminatedUnion("type", [
     title: z.string().min(1).max(256),
     description: z.string().max(512).nullable(),
     url: z.string().max(2048).nullable(),
+    ingredients: ingredients.optional(),
   }),
   z.object({ type: z.literal("recipe.delete"), id }),
+
+  // Familie
+  z.object({ type: z.literal("family.setStaples"), staples: z.array(z.string().min(1).max(100)).max(200) }),
 ])
 
 export type SyncOp = z.infer<typeof syncOpSchema>

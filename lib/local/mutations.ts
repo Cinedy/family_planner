@@ -5,6 +5,7 @@ import { requestSync } from "@/lib/local/sync"
 import { eventFieldsFromForm, TIMEZONE, type EventFormValues } from "@/lib/calendar-utils"
 import type { SyncOp } from "@/lib/sync/ops"
 import type { SerializedEvent } from "@/types/calendar"
+import type { SerializedRecipe } from "@/types/meals"
 import type { LocalDinner, LocalGroceryItem, LocalTodoItem } from "@/types/sync"
 
 // Every change is written to IndexedDB (the UI re-renders instantly via
@@ -37,6 +38,26 @@ export function addGroceryItem(name: string) {
     }
     await db.groceryItems.add(item)
     queue({ type: "grocery.upsert", ...pick(item, ["id", "name", "quantity", "checked", "sortOrder"]) })
+  })
+}
+
+export function addGroceryItems(items: { name: string; quantity: string | null }[]) {
+  if (items.length === 0) return Promise.resolve()
+  return change([db.groceryItems], async (queue) => {
+    const existing = await db.groceryItems.toArray()
+    let sortOrder = existing.reduce((max, i) => Math.max(max, i.sortOrder), -1)
+    for (const input of items) {
+      const item: LocalGroceryItem = {
+        id: newId(),
+        name: input.name.trim().slice(0, 128),
+        quantity: input.quantity?.slice(0, 64) ?? null,
+        checked: false,
+        sortOrder: ++sortOrder,
+        createdAt: now(),
+      }
+      await db.groceryItems.add(item)
+      queue({ type: "grocery.upsert", ...pick(item, ["id", "name", "quantity", "checked", "sortOrder"]) })
+    }
   })
 }
 
@@ -169,19 +190,23 @@ export function clearDinner(weekStart: string, day: number) {
   })
 }
 
-export function addRecipe(input: { title: string; description?: string; url?: string }) {
+export function saveRecipe(
+  existing: SerializedRecipe | null,
+  input: { title: string; description?: string; url?: string; ingredients: string[] }
+) {
   return change([db.recipes, db.meta], async (queue) => {
     const meta = await getMeta()
-    const recipe = {
-      id: newId(),
+    const recipe: SerializedRecipe = {
+      id: existing?.id ?? newId(),
       title: input.title.trim(),
       description: input.description?.trim() || null,
       url: input.url?.trim() || null,
-      createdById: meta?.me.id ?? "",
-      createdAt: now(),
+      ingredients: input.ingredients,
+      createdById: existing?.createdById ?? meta?.me.id ?? "",
+      createdAt: existing?.createdAt ?? now(),
     }
-    await db.recipes.add(recipe)
-    queue({ type: "recipe.upsert", ...pick(recipe, ["id", "title", "description", "url"]) })
+    await db.recipes.put(recipe)
+    queue({ type: "recipe.upsert", ...pick(recipe, ["id", "title", "description", "url", "ingredients"]) })
   })
 }
 
@@ -189,6 +214,15 @@ export function deleteRecipe(id: string) {
   return change([db.recipes], async (queue) => {
     await db.recipes.delete(id)
     queue({ type: "recipe.delete", id })
+  })
+}
+
+// ─── Familie ───────────────────────────────────────────────────────────────
+
+export function setStaples(staples: string[]) {
+  return change([db.meta], async (queue) => {
+    await db.meta.update("meta", { staples })
+    queue({ type: "family.setStaples", staples })
   })
 }
 

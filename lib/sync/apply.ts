@@ -185,6 +185,7 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
         title: op.title,
         notes: op.notes,
         recipeUrl: op.recipeUrl,
+        ...(op.ingredients && { ingredients: op.ingredients }),
       }
       await tx.mealPlanEntry.upsert({ where: { id: op.id }, create: { id: op.id, ...data }, update: data })
       return
@@ -201,7 +202,12 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
     case "recipe.upsert": {
       const existing = await tx.recipe.findUnique({ where: { id: op.id } })
       if (existing && existing.familyId !== familyId) return
-      const data = { title: op.title, description: op.description, url: op.url }
+      const data = {
+        title: op.title,
+        description: op.description,
+        url: op.url,
+        ...(op.ingredients && { ingredients: op.ingredients }),
+      }
       if (existing) {
         await tx.recipe.update({ where: { id: op.id }, data })
       } else {
@@ -211,6 +217,11 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
     }
     case "recipe.delete":
       await tx.recipe.deleteMany({ where: { id: op.id, familyId } })
+      return
+
+    // ─── Familie ────────────────────────────────────────────────────────────
+    case "family.setStaples":
+      await tx.family.update({ where: { id: familyId }, data: { pantryStaples: op.staples } })
       return
   }
 }

@@ -123,6 +123,7 @@ async function syncOnce() {
           role: snap.role,
           familyId: snap.familyId,
           familyName: snap.familyName,
+          staples: snap.staples,
           lastSyncedAt: new Date().toISOString(),
         }),
       ])

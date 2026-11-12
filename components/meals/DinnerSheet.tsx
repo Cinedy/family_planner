@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ChevronLeft, ExternalLink } from "lucide-react"
 import {
   Sheet,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { setDinner, clearDinner } from "@/lib/local/mutations"
+import { ingredientsFromText, ingredientsToText } from "@/lib/ingredients"
 import type { SerializedDinnerEntry, SerializedRecipe } from "@/types/meals"
 
 interface DinnerSheetProps {
@@ -20,7 +21,12 @@ interface DinnerSheetProps {
   day: number
   entry: SerializedDinnerEntry | null
   recipes: SerializedRecipe[]
+  /** Called after saving when the dinner has new or changed ingredients */
+  onIngredientsSaved: (dinner: { title: string; ingredients: string[] }) => void
 }
+
+// The parent remounts this component (via `key`) each time the sheet opens,
+// so the form starts from the current entry without syncing state in an effect.
 
 export function DinnerSheet({
   open,
@@ -29,22 +35,14 @@ export function DinnerSheet({
   day,
   entry,
   recipes,
+  onIngredientsSaved,
 }: DinnerSheetProps) {
-  const [mode, setMode] = useState<"form" | "picker">("form")
-  const [title, setTitle] = useState("")
-  const [notes, setNotes] = useState("")
-  const [recipeUrl, setRecipeUrl] = useState("")
+  const [mode, setMode] = useState<"form" | "picker">(entry === null && recipes.length > 0 ? "picker" : "form")
+  const [title, setTitle] = useState(entry?.title ?? "")
+  const [notes, setNotes] = useState(entry?.notes ?? "")
+  const [recipeUrl, setRecipeUrl] = useState(entry?.recipeUrl ?? "")
+  const [ingredientsText, setIngredientsText] = useState(ingredientsToText(entry?.ingredients))
   const [confirmClear, setConfirmClear] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      setTitle(entry?.title ?? "")
-      setNotes(entry?.notes ?? "")
-      setRecipeUrl(entry?.recipeUrl ?? "")
-      setMode(entry === null && recipes.length > 0 ? "picker" : "form")
-      setConfirmClear(false)
-    }
-  }, [open, entry, recipes.length])
 
   function handleClose() {
     onOpenChange(false)
@@ -53,12 +51,15 @@ export function DinnerSheet({
   function handlePickRecipe(recipe: SerializedRecipe) {
     setTitle(recipe.title)
     setRecipeUrl(recipe.url ?? "")
+    // Picking a recipe always brings its ingredients
+    setIngredientsText(ingredientsToText(recipe.ingredients))
     setMode("form")
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    const ingredients = ingredientsFromText(ingredientsText)
     void setDinner({
       id: entry?.id,
       weekStart,
@@ -66,8 +67,12 @@ export function DinnerSheet({
       title: title.trim(),
       notes: notes.trim() || null,
       recipeUrl: recipeUrl.trim() || null,
+      ingredients,
     })
     handleClose()
+
+    const changed = ingredientsToText(entry?.ingredients) !== ingredientsToText(ingredients)
+    if (ingredients.length > 0 && changed) onIngredientsSaved({ title: title.trim(), ingredients })
   }
 
   function handleClear() {
@@ -135,6 +140,17 @@ export function DinnerSheet({
                   className={inputClass}
                   autoFocus
                   required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClass}>Ingredienser (én per linje)</label>
+                <textarea
+                  value={ingredientsText}
+                  onChange={(e) => setIngredientsText(e.target.value)}
+                  placeholder={"400 g kjøttdeig\n1 løk\n1 boks hakkede tomater"}
+                  rows={4}
+                  className={`${inputClass} h-auto resize-none`}
                 />
               </div>
 

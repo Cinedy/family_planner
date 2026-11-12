@@ -42,6 +42,7 @@ export async function getSnapshot(userId: string, membership: Membership): Promi
     role: membership.role,
     familyId,
     familyName: membership.family.name,
+    staples: membership.family.pantryStaples,
     members: membership.family.members.map((m) => user(m.user)),
     groceryItems: groceryList.items.map((i) => ({
       id: i.id,
@@ -83,12 +84,14 @@ export async function getSnapshot(userId: string, membership: Membership): Promi
       title: d.title,
       notes: d.notes,
       recipeUrl: d.recipeUrl,
+      ingredients: d.ingredients,
     })),
     recipes: recipes.map((r) => ({
       id: r.id,
       title: r.title,
       description: r.description,
       url: r.url,
+      ingredients: r.ingredients,
       createdById: r.createdById,
       createdAt: r.createdAt.toISOString(),
     })),

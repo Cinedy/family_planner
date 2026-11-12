@@ -30,6 +30,7 @@ export type LocalDinner = {
   title: string
   notes: string | null
   recipeUrl: string | null
+  ingredients: string[]
 }
 
 export type LocalMeta = {
@@ -38,6 +39,8 @@ export type LocalMeta = {
   role: "admin" | "member"
   familyId: string
   familyName: string
+  /** Basisvarer: start unticked when adding ingredients to the grocery list */
+  staples: string[]
   lastSyncedAt: string
 }
 
@@ -46,6 +49,7 @@ export type Snapshot = {
   role: "admin" | "member"
   familyId: string
   familyName: string
+  staples: string[]
   members: Member[]
   groceryItems: LocalGroceryItem[]
   todoItems: LocalTodoItem[]

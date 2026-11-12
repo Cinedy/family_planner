@@ -72,6 +72,8 @@ model Family {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
+  // "Basisvarer": ingredients the family always has; they start unticked when shopping
+  pantryStaples String[] @default(["salt", "pepper", "olje", "olivenolje", "smør", "sukker", "hvetemel"])
 
   members      FamilyMember[]
   invitations  Invitation[]
@@ -236,6 +238,8 @@ model MealPlanEntry {
   title     String
   notes     String?
   recipeUrl String?
+  // One ingredient per entry, free text, e.g. "400 g kjøttdeig"
+  ingredients String[] @default([])
 
   plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
 }
@@ -247,6 +251,7 @@ model Recipe {
   title       String
   description String?
   url         String?
+  ingredients String[] @default([])
   createdAt   DateTime @default(now())
 
   family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)

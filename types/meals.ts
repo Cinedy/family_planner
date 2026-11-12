@@ -5,6 +5,7 @@ export type SerializedRecipe = {
   title: string
   description: string | null
   url: string | null
+  ingredients: string[]
   createdById: string
   createdAt: string
 }

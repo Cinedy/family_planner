@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useLiveQuery } from "dexie-react-hooks"
 import { addDays, format, getISOWeek, parseISO } from "date-fns"
 import { nb } from "date-fns/locale"
-import { ChevronLeft, ChevronRight, ExternalLink, Pencil, Plus } from "lucide-react"
+import { ChevronLeft, ChevronRight, ExternalLink, Pencil, Plus, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { db } from "@/lib/local/db"
 import { DinnerSheet } from "./DinnerSheet"
+import { AddIngredientsSheet, type IngredientSource } from "./AddIngredientsSheet"
 import type { SerializedDinnerEntry, SerializedRecipe } from "@/types/meals"
 
 interface WeekPlanTabProps {
@@ -18,9 +19,24 @@ interface WeekPlanTabProps {
 
 export function WeekPlanTab({ weekStart, onWeekChange, recipes }: WeekPlanTabProps) {
   const entries = useLiveQuery(() => db.dinners.where("weekStart").equals(weekStart).toArray(), [weekStart], [])
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [editingDay, setEditingDay] = useState(0)
-  const [editingEntry, setEditingEntry] = useState<SerializedDinnerEntry | null>(null)
+  // Sheets get a new key each time they open, so their forms start fresh
+  const openCount = useRef(0)
+  const [dinnerSheet, setDinnerSheet] = useState<{
+    key: number
+    day: number
+    entry: SerializedDinnerEntry | null
+    open: boolean
+  } | null>(null)
+  const [shopping, setShopping] = useState<{ key: number; title: string; sources: IngredientSource[]; open: boolean } | null>(null)
+
+  const weekSources: IngredientSource[] = [...entries]
+    .sort((a, b) => a.day - b.day)
+    .filter((e) => (e.ingredients?.length ?? 0) > 0)
+    .map((e) => ({ title: e.title, ingredients: e.ingredients }))
+
+  function openShopping(title: string, sources: IngredientSource[]) {
+    setShopping({ key: ++openCount.current, title, sources, open: true })
+  }
 
   const monday = parseISO(weekStart)
   const sunday = addDays(monday, 6)
@@ -31,9 +47,7 @@ export function WeekPlanTab({ weekStart, onWeekChange, recipes }: WeekPlanTabPro
   }
 
   function openSheet(day: number, entry: SerializedDinnerEntry | null) {
-    setEditingDay(day)
-    setEditingEntry(entry)
-    setSheetOpen(true)
+    setDinnerSheet({ key: ++openCount.current, day, entry, open: true })
   }
 
   return (
@@ -109,14 +123,39 @@ export function WeekPlanTab({ weekStart, onWeekChange, recipes }: WeekPlanTabPro
         })}
       </div>
 
-      <DinnerSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        weekStart={weekStart}
-        day={editingDay}
-        entry={editingEntry}
-        recipes={recipes}
-      />
+      {weekSources.length > 0 && (
+        <Button
+          variant="outline"
+          className="w-full min-h-[44px] gap-2"
+          onClick={() => openShopping("Handleliste for uka", weekSources)}
+        >
+          <ShoppingCart className="size-4" />
+          Lag handleliste for uka
+        </Button>
+      )}
+
+      {dinnerSheet && (
+        <DinnerSheet
+          key={dinnerSheet.key}
+          open={dinnerSheet.open}
+          onOpenChange={(open) => setDinnerSheet({ ...dinnerSheet, open })}
+          weekStart={weekStart}
+          day={dinnerSheet.day}
+          entry={dinnerSheet.entry}
+          recipes={recipes}
+          onIngredientsSaved={(dinner) => openShopping(`Ingredienser til ${dinner.title}`, [dinner])}
+        />
+      )}
+
+      {shopping && (
+        <AddIngredientsSheet
+          key={shopping.key}
+          open={shopping.open}
+          onOpenChange={(open) => setShopping({ ...shopping, open })}
+          title={shopping.title}
+          sources={shopping.sources}
+        />
+      )}
     </div>
   )
 }
