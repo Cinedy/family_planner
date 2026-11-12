@@ -136,6 +136,9 @@
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
+.keyboard-open .pb-safe {
+  padding-bottom: 0px;
+}
 
 /* Room for the mobile bottom tab bar (56px) plus the home indicator */
 .pb-tabbar {
