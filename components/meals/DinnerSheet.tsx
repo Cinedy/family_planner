@@ -80,7 +80,7 @@ export function DinnerSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent side="bottom" className="max-h-[85dvh] rounded-t-2xl overflow-y-auto pb-safe">
+      <SheetContent side="bottom" className="max-h-[calc(var(--vv-height,100dvh)*0.85)] rounded-t-2xl overflow-y-auto pb-safe">
         {mode === "picker" ? (
           <>
             <SheetHeader>

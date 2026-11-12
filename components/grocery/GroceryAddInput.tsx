@@ -28,6 +28,8 @@ export function GroceryAddInput({ onAdd }: GroceryAddInputProps) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+        // Wait for the iOS keyboard to finish opening, then bring the field into view
+        onFocus={() => setTimeout(() => inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }), 350)}
         placeholder="Legg til vare..."
         className="flex-1 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />

@@ -139,7 +139,7 @@
 
 /* Room for the mobile bottom tab bar (56px) plus the home indicator */
 .pb-tabbar {
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px));
 }
 .bottom-above-tabbar {
   bottom: calc(5rem + env(safe-area-inset-bottom, 0px));

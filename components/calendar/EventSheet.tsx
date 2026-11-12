@@ -50,7 +50,7 @@ export function EventSheet({
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent
         side="bottom"
-        className="max-h-[92dvh] rounded-t-2xl overflow-y-auto pb-safe"
+        className="max-h-[calc(var(--vv-height,100dvh)*0.92)] rounded-t-2xl overflow-y-auto pb-safe"
       >
         <SheetHeader>
           <SheetTitle>{event ? "Rediger hendelse" : "Ny hendelse"}</SheetTitle>
