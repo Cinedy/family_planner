@@ -4,7 +4,6 @@ import { getFamilyForUser } from "@/lib/family"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { InviteForm } from "@/components/family/invite-form"
 import { LeaveFamilyButton } from "@/components/family/leave-family-button"
 import { Users, Mail } from "lucide-react"
@@ -99,7 +98,7 @@ export default async function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LeaveFamilyButton />
+          <LeaveFamilyButton isLastMember={family.members.length === 1} />
         </CardContent>
       </Card>
     </div>

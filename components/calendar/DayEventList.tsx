@@ -1,42 +1,23 @@
 "use client"
 
-import { format, isSameDay, parseISO } from "date-fns"
+import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { toZonedTime } from "date-fns-tz"
-import { RRule } from "rrule"
 import { Plus, RotateCcw } from "lucide-react"
+import { TIMEZONE, occursOnDay } from "@/lib/calendar-utils"
 import type { SerializedEvent } from "@/types/calendar"
 
-const TIMEZONE = "Europe/Oslo"
-
 function getEventsForDay(events: SerializedEvent[], day: Date): SerializedEvent[] {
-  const result: SerializedEvent[] = []
-
-  for (const event of events) {
-    if (event.recurrence) {
-      try {
-        const rule = RRule.fromString(
-          event.recurrence.startsWith("RRULE:") ? event.recurrence : `RRULE:${event.recurrence}`
-        )
-        const dayStart = new Date(day)
-        dayStart.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(day)
-        dayEnd.setHours(23, 59, 59, 999)
-        const occurrences = rule.between(dayStart, dayEnd, true)
-        if (occurrences.length > 0) result.push(event)
-      } catch {
-        if (isSameDay(parseISO(event.startTime), day)) result.push(event)
-      }
-    } else {
-      if (isSameDay(parseISO(event.startTime), day)) result.push(event)
-    }
-  }
-
-  return result.sort((a, b) => {
-    if (a.allDay && !b.allDay) return -1
-    if (!a.allDay && b.allDay) return 1
-    return a.startTime.localeCompare(b.startTime)
-  })
+  return events
+    .filter((event) => occursOnDay(event, day))
+    .sort((a, b) => {
+      if (a.allDay && !b.allDay) return -1
+      if (!a.allDay && b.allDay) return 1
+      // Compare time of day, so repeats sort by their time rather than first date
+      return toZonedTime(new Date(a.startTime), TIMEZONE).toTimeString().localeCompare(
+        toZonedTime(new Date(b.startTime), TIMEZONE).toTimeString()
+      )
+    })
 }
 
 function formatEventTime(event: SerializedEvent): string {
@@ -83,7 +64,7 @@ export function DayEventList({ selectedDate, events, onEventClick, onCreateEvent
               {/* Color bar */}
               <span
                 className="mt-0.5 w-1 self-stretch rounded-full shrink-0"
-                style={{ backgroundColor: event.color ?? "hsl(var(--primary))" }}
+                style={{ backgroundColor: event.color ?? "var(--primary)" }}
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">

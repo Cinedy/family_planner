@@ -18,7 +18,7 @@ export function GroceryItemRow({ item, onToggle, onDelete, dragHandleProps }: Gr
       {dragHandleProps && (
         <button
           {...dragHandleProps}
-          className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+          className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 shrink-0 text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
           aria-label="Dra for å sortere"
         >
           <GripVertical className="size-4" />
@@ -60,7 +60,7 @@ export function GroceryItemRow({ item, onToggle, onDelete, dragHandleProps }: Gr
         size="icon-sm"
         onClick={() => onDelete(item.id)}
         aria-label="Fjern vare"
-        className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+        className="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground"
       >
         <X className="size-3.5" />
       </Button>

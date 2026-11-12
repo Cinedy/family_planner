@@ -5,15 +5,15 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
+  endOfDay,
   eachDayOfInterval,
   isSameMonth,
   isSameDay,
   isToday,
-  parseISO,
   format,
 } from "date-fns"
 import { nb } from "date-fns/locale"
-import { RRule } from "rrule"
+import { occurrencesBetween } from "@/lib/calendar-utils"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SerializedEvent } from "@/types/calendar"
@@ -42,22 +42,8 @@ function buildEventMap(
   }
 
   for (const event of events) {
-    if (event.recurrence) {
-      try {
-        const rule = RRule.fromString(
-          event.recurrence.startsWith("RRULE:") ? event.recurrence : `RRULE:${event.recurrence}`
-        )
-        const occurrences = rule.between(rangeStart, rangeEnd, true)
-        for (const occ of occurrences) {
-          addToMap(format(occ, "yyyy-MM-dd"), event)
-        }
-      } catch {
-        const key = format(parseISO(event.startTime), "yyyy-MM-dd")
-        addToMap(key, event)
-      }
-    } else {
-      const key = format(parseISO(event.startTime), "yyyy-MM-dd")
-      addToMap(key, event)
+    for (const start of occurrencesBetween(event, rangeStart, rangeEnd)) {
+      addToMap(format(start, "yyyy-MM-dd"), event)
     }
   }
 
@@ -78,7 +64,7 @@ export function MonthGrid({
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
 
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
-  const eventMap = buildEventMap(events, gridStart, gridEnd)
+  const eventMap = buildEventMap(events, gridStart, endOfDay(gridEnd))
 
   return (
     <div className="select-none">
@@ -148,7 +134,7 @@ export function MonthGrid({
                   <span
                     key={i}
                     className="size-1.5 rounded-full"
-                    style={{ backgroundColor: event.color ?? "hsl(var(--primary))" }}
+                    style={{ backgroundColor: event.color ?? "var(--primary)" }}
                   />
                 ))}
                 {extraCount > 0 && (

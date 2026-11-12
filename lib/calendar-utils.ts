@@ -1,5 +1,5 @@
-import { addDays, parseISO, startOfDay } from "date-fns"
-import { fromZonedTime } from "date-fns-tz"
+import { addDays, endOfDay, parseISO, startOfDay } from "date-fns"
+import { fromZonedTime, toZonedTime } from "date-fns-tz"
 import { RRule } from "rrule"
 import type { SerializedEvent } from "@/types/calendar"
 
@@ -44,11 +44,25 @@ export function eventFieldsFromForm(values: EventFormValues) {
   }
 }
 
+// rrule works in UTC. To keep repeats on the right Oslo wall-clock time across
+// daylight saving changes, we feed it "floating" dates whose UTC fields hold the
+// Oslo wall-clock time, and convert the results back.
+function toFloating(date: Date): Date {
+  const z = toZonedTime(date, TIMEZONE)
+  return new Date(Date.UTC(z.getFullYear(), z.getMonth(), z.getDate(), z.getHours(), z.getMinutes(), z.getSeconds()))
+}
+
+function fromFloating(f: Date): Date {
+  const wall = new Date(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate(), f.getUTCHours(), f.getUTCMinutes(), f.getUTCSeconds())
+  return fromZonedTime(wall, TIMEZONE)
+}
+
 function ruleFor(event: SerializedEvent): RRule | null {
   if (!event.recurrence) return null
   try {
     const options = RRule.parseString(event.recurrence.replace(/^RRULE:/, ""))
-    return new RRule({ ...options, dtstart: new Date(event.startTime) })
+    // The rule must start at the event's own start, otherwise rrule assumes "now"
+    return new RRule({ ...options, dtstart: toFloating(new Date(event.startTime)) })
   } catch {
     return null
   }
@@ -61,7 +75,11 @@ export function occurrencesBetween(event: SerializedEvent, from: Date, to: Date)
     const start = new Date(event.startTime)
     return start >= from && start <= to ? [start] : []
   }
-  return rule.between(from, to, true)
+  return rule.between(toFloating(from), toFloating(to), true).map(fromFloating)
+}
+
+export function occursOnDay(event: SerializedEvent, day: Date): boolean {
+  return occurrencesBetween(event, startOfDay(day), endOfDay(day)).length > 0
 }
 
 /** The next `limit` occurrences from the start of today, across all events, within `days` days. */

@@ -60,6 +60,12 @@ export async function inviteByEmail(
   const familyName = membership.family.name
   const invitedByName = session.user.name ?? "Et familiemedlem"
 
+  // Mark old invitations as expired so they don't block a new one
+  await prisma.invitation.updateMany({
+    where: { familyId, email, status: "pending", expiresAt: { lt: new Date() } },
+    data: { status: "expired" },
+  })
+
   const existing = await prisma.invitation.findFirst({
     where: { familyId, email, status: "pending" },
   })
@@ -96,15 +102,13 @@ export async function acceptInvitation(token: string): Promise<void> {
   })
 
   if (!invitation || invitation.status !== "pending" || invitation.expiresAt < new Date()) {
-    redirect("/login")
+    redirect(`/invite/${token}`)
   }
 
-  const alreadyMember = await prisma.familyMember.findUnique({
-    where: {
-      familyId_userId: { familyId: invitation.familyId, userId: session.user.id },
-    },
-  })
-  if (alreadyMember) redirect("/dashboard")
+  const currentMembership = await getFamilyForUser(session.user.id)
+  if (currentMembership?.familyId === invitation.familyId) redirect("/dashboard")
+  // One family per user: the invite page explains how to leave the current one first
+  if (currentMembership) redirect(`/invite/${token}`)
 
   await prisma.$transaction([
     prisma.invitation.update({ where: { token }, data: { status: "accepted" } }),
@@ -125,19 +129,23 @@ export async function leaveFamily(): Promise<ActionState> {
   if (!membership) return { error: "Du er ikke med i noen familie" }
 
   const { familyId } = membership
+  const others = membership.family.members.filter((m) => m.userId !== session.user.id)
 
-  if (membership.role === "admin") {
-    const adminCount = await prisma.familyMember.count({
-      where: { familyId, role: "admin" },
-    })
-    if (adminCount <= 1) {
-      return { error: "Du kan ikke forlate familien som eneste administrator" }
-    }
+  if (others.length === 0) {
+    // Last member: the family and all its data are deleted (the UI asks for confirmation)
+    await prisma.family.delete({ where: { id: familyId } })
+  } else {
+    const otherAdmins = others.filter((m) => m.role === "admin")
+    await prisma.$transaction([
+      // Never leave a family without an admin: promote the longest-standing member
+      ...(membership.role === "admin" && otherAdmins.length === 0
+        ? [prisma.familyMember.update({ where: { id: others[0].id }, data: { role: "admin" } })]
+        : []),
+      prisma.familyMember.delete({
+        where: { familyId_userId: { familyId, userId: session.user.id } },
+      }),
+    ])
   }
-
-  await prisma.familyMember.delete({
-    where: { familyId_userId: { familyId, userId: session.user.id } },
-  })
 
   revalidatePath("/", "layout")
   redirect("/onboarding")

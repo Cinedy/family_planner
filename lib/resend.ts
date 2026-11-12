@@ -6,7 +6,17 @@ export const resend = new Resend(process.env.RESEND_API_KEY)
 // This address can only deliver to the email address registered on the Resend account.
 // To send to all family members, add and verify your own domain in Resend.
 const FROM = process.env.RESEND_FROM ?? "Familieplanlegger <onboarding@resend.dev>"
-const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+// Invite links: an explicit APP_URL wins, then Vercel's production domain
+// (set automatically on Vercel), then the local dev server.
+const APP_URL =
+  process.env.APP_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000")
+
+function escapeHtml(text: string) {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+}
 
 export function buildInviteEmail({
   email,
@@ -20,6 +30,8 @@ export function buildInviteEmail({
   token: string
 }) {
   const link = `${APP_URL}/invite/${token}`
+  familyName = escapeHtml(familyName)
+  invitedByName = escapeHtml(invitedByName)
 
   return {
     from: FROM,

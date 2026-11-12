@@ -54,7 +54,7 @@ export function RecipesTab({ recipes }: RecipesTabProps) {
                 size="icon-sm"
                 onClick={() => handleDelete(recipe.id)}
                 aria-label="Slett oppskrift"
-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+                className="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground"
               >
                 <X className="size-3.5" />
               </Button>
