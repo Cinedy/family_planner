@@ -4,6 +4,8 @@ import { db, getMeta } from "@/lib/local/db"
 import { requestSync } from "@/lib/local/sync"
 import { eventFieldsFromForm, TIMEZONE, type EventFormValues } from "@/lib/calendar-utils"
 import type { SyncOp } from "@/lib/sync/ops"
+import { guessCategory } from "@/lib/grocery-categories"
+import { normalizeName } from "@/lib/ingredients"
 import type { SerializedEvent } from "@/types/calendar"
 import type { SerializedRecipe } from "@/types/meals"
 import type { LocalDinner, LocalGroceryItem, LocalTodoItem } from "@/types/sync"
@@ -27,7 +29,7 @@ async function change<T = void>(tables: Table[], fn: (queue: (op: SyncOp) => voi
 
 const groceryUpsert = (item: LocalGroceryItem): SyncOp => ({
   type: "grocery.upsert",
-  ...pick(item, ["id", "name", "quantity", "checked", "sortOrder"]),
+  ...pick(item, ["id", "name", "quantity", "category", "checked", "sortOrder"]),
 })
 const todoUpsert = (item: LocalTodoItem): SyncOp => ({
   type: "todo.upsert",
@@ -39,12 +41,14 @@ const dueDateFromInput = (date: string | undefined) =>
 // ─── Handleliste ───────────────────────────────────────────────────────────
 
 export function addGroceryItem(name: string, quantity: string | null = null) {
-  return change([db.groceryItems], async (queue) => {
+  return change([db.groceryItems, db.meta], async (queue) => {
     const items = await db.groceryItems.toArray()
+    const hints = (await getMeta())?.categoryHints
     const item: LocalGroceryItem = {
       id: newId(),
       name: name.trim(),
       quantity: quantity?.trim() || null,
+      category: guessCategory(name, hints),
       checked: false,
       sortOrder: items.reduce((max, i) => Math.max(max, i.sortOrder), -1) + 1,
       createdAt: now(),
@@ -54,13 +58,28 @@ export function addGroceryItem(name: string, quantity: string | null = null) {
   })
 }
 
-export function updateGroceryItem(id: string, fields: { name: string; quantity: string | null }) {
-  return change([db.groceryItems], async (queue) => {
+/**
+ * Edits an item. Pass `category` only when the user picked a section; otherwise a
+ * renamed item is re-guessed from its new name. A section picked by hand is "learned":
+ * the next item with this name goes straight to that section.
+ */
+export function updateGroceryItem(id: string, fields: { name: string; quantity: string | null; category?: string }) {
+  return change([db.groceryItems, db.meta], async (queue) => {
     const item = await db.groceryItems.get(id)
     if (!item) return
-    const updated = { ...item, name: fields.name.trim(), quantity: fields.quantity?.trim() || null }
+    const meta = await getMeta()
+    const name = fields.name.trim()
+    const before = item.category ?? guessCategory(item.name, meta?.categoryHints)
+    const category = fields.category ?? (name !== item.name ? guessCategory(name, meta?.categoryHints) : before)
+    const updated: LocalGroceryItem = { ...item, name, quantity: fields.quantity?.trim() || null, category }
     await db.groceryItems.put(updated)
     queue(groceryUpsert(updated))
+
+    if (fields.category && fields.category !== before && meta) {
+      const hints = { ...meta.categoryHints, [normalizeName(name)]: fields.category }
+      await db.meta.update("meta", { categoryHints: hints })
+      queue({ type: "family.setCategoryHint", name, category: fields.category })
+    }
   })
 }
 
@@ -74,14 +93,16 @@ export function restoreGroceryItems(items: LocalGroceryItem[]) {
 
 export function addGroceryItems(items: { name: string; quantity: string | null }[]) {
   if (items.length === 0) return Promise.resolve()
-  return change([db.groceryItems], async (queue) => {
+  return change([db.groceryItems, db.meta], async (queue) => {
     const existing = await db.groceryItems.toArray()
+    const hints = (await getMeta())?.categoryHints
     let sortOrder = existing.reduce((max, i) => Math.max(max, i.sortOrder), -1)
     for (const input of items) {
       const item: LocalGroceryItem = {
         id: newId(),
         name: input.name.trim().slice(0, 128),
         quantity: input.quantity?.slice(0, 64) ?? null,
+        category: guessCategory(input.name, hints),
         checked: false,
         sortOrder: ++sortOrder,
         createdAt: now(),
@@ -291,6 +312,13 @@ export function deleteRecipe(id: string) {
 }
 
 // ─── Familie ───────────────────────────────────────────────────────────────
+
+export function setCategoryOrder(order: string[]) {
+  return change([db.meta], async (queue) => {
+    await db.meta.update("meta", { categoryOrder: order })
+    queue({ type: "family.setCategoryOrder", order })
+  })
+}
 
 export function setStaples(staples: string[]) {
   return change([db.meta], async (queue) => {

@@ -124,6 +124,8 @@ async function syncOnce() {
           familyId: snap.familyId,
           familyName: snap.familyName,
           staples: snap.staples,
+          categoryOrder: snap.categoryOrder,
+          categoryHints: snap.categoryHints,
           lastSyncedAt: new Date().toISOString(),
         }),
       ])

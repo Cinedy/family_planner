@@ -16,6 +16,8 @@ export const syncOpSchema = z.discriminatedUnion("type", [
     id,
     name: z.string().min(1).max(128),
     quantity: z.string().max(64).nullable(),
+    // Optional so ops queued by an older app version don't clear the category
+    category: z.string().max(32).nullable().optional(),
     checked: z.boolean(),
     sortOrder: z.number().int(),
   }),
@@ -78,6 +80,12 @@ export const syncOpSchema = z.discriminatedUnion("type", [
 
   // Familie
   z.object({ type: z.literal("family.setStaples"), staples: z.array(z.string().min(1).max(100)).max(200) }),
+  z.object({ type: z.literal("family.setCategoryOrder"), order: z.array(z.string().min(1).max(32)).max(50) }),
+  z.object({
+    type: z.literal("family.setCategoryHint"),
+    name: z.string().min(1).max(128),
+    category: z.string().min(1).max(32),
+  }),
 ])
 
 export type SyncOp = z.infer<typeof syncOpSchema>

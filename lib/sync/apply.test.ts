@@ -81,6 +81,23 @@ describe("groceries", () => {
   })
 })
 
+describe("grocery sections", () => {
+  it("doesn't clear the section when an older app version leaves it out", async () => {
+    tx.groceryItem.findUnique.mockResolvedValue({ id: "g1", list: { familyId: "fam" } })
+    await run({ type: "grocery.upsert", id: "g1", name: "Melk", quantity: null, checked: true, sortOrder: 0 })
+    expect(tx.groceryItem.update.mock.calls[0][0].data).not.toHaveProperty("category")
+  })
+
+  it("adds a learned section to the family's hints", async () => {
+    tx.family.findUnique.mockResolvedValue({ groceryCategoryHints: { melk: "meieri" } })
+    await run({ type: "family.setCategoryHint", name: "  Pizzadeig ", category: "meieri" })
+    expect(tx.family.update).toHaveBeenCalledWith({
+      where: { id: "fam" },
+      data: { groceryCategoryHints: { melk: "meieri", pizzadeig: "meieri" } },
+    })
+  })
+})
+
 describe("todos", () => {
   it("drops an assignee who isn't in the family", async () => {
     tx.todoList.findFirst.mockResolvedValue({ id: "todos" })

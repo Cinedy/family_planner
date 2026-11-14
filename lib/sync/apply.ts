@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@/lib/generated/prisma/client"
 import type { SyncOp } from "@/lib/sync/ops"
+import { normalizeName } from "@/lib/ingredients"
 
 type Tx = Prisma.TransactionClient
 
@@ -63,7 +64,13 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
     case "grocery.upsert": {
       const existing = await tx.groceryItem.findUnique({ where: { id: op.id }, include: { list: true } })
       if (existing && existing.list.familyId !== familyId) return
-      const data = { name: op.name, quantity: op.quantity, checked: op.checked, sortOrder: op.sortOrder }
+      const data = {
+        name: op.name,
+        quantity: op.quantity,
+        checked: op.checked,
+        sortOrder: op.sortOrder,
+        ...(op.category !== undefined && { category: op.category }),
+      }
       if (existing) {
         await tx.groceryItem.update({ where: { id: op.id }, data })
       } else {
@@ -223,5 +230,20 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
     case "family.setStaples":
       await tx.family.update({ where: { id: familyId }, data: { pantryStaples: op.staples } })
       return
+    case "family.setCategoryOrder":
+      await tx.family.update({ where: { id: familyId }, data: { groceryCategoryOrder: op.order } })
+      return
+    case "family.setCategoryHint": {
+      const family = await tx.family.findUnique({ where: { id: familyId }, select: { groceryCategoryHints: true } })
+      const hints = { ...(family?.groceryCategoryHints as Record<string, string> | null) }
+      const key = normalizeName(op.name)
+      delete hints[key] // re-insert so it counts as most recent
+      hints[key] = op.category
+      // Keep the most recent 1000 names (objects keep insertion order)
+      const entries = Object.entries(hints)
+      const trimmed = Object.fromEntries(entries.slice(Math.max(0, entries.length - 1000)))
+      await tx.family.update({ where: { id: familyId }, data: { groceryCategoryHints: trimmed } })
+      return
+    }
   }
 }

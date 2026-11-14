@@ -7,6 +7,8 @@ export type LocalGroceryItem = {
   id: string
   name: string
   quantity: string | null
+  /** Store section key (lib/grocery-categories.ts); null = not set, guessed from the name */
+  category: string | null
   checked: boolean
   sortOrder: number
   createdAt: string
@@ -41,6 +43,10 @@ export type LocalMeta = {
   familyName: string
   /** Basisvarer: start unticked when adding ingredients to the grocery list */
   staples: string[]
+  /** Store sections in the family's order */
+  categoryOrder: string[]
+  /** Learned sections: normalized item name → section key */
+  categoryHints: Record<string, string>
   lastSyncedAt: string
 }
 
@@ -50,6 +56,8 @@ export type Snapshot = {
   familyId: string
   familyName: string
   staples: string[]
+  categoryOrder: string[]
+  categoryHints: Record<string, string>
   members: Member[]
   groceryItems: LocalGroceryItem[]
   todoItems: LocalTodoItem[]

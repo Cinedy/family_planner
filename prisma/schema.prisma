@@ -78,6 +78,10 @@ model Family {
   createdAt DateTime @default(now())
   // "Basisvarer": ingredients the family always has; they start unticked when shopping
   pantryStaples String[] @default(["salt", "pepper", "olje", "olivenolje", "smør", "sukker", "hvetemel"])
+  // Grocery list: store sections in the order the family walks the store (see lib/grocery-categories.ts)
+  groceryCategoryOrder String[] @default(["frukt-gront", "brod", "kjott-fisk", "palegg", "meieri", "torrvarer", "krydder-saus", "frys", "drikke", "snacks", "hus-hygiene", "annet"])
+  // Learned sections: normalized item name → section key, set when someone moves an item
+  groceryCategoryHints Json @default("{}")
 
   members      FamilyMember[]
   invitations  Invitation[]

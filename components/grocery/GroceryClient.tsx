@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { useLiveQuery } from "dexie-react-hooks"
-import { ShoppingCart } from "lucide-react"
+import { ArrowUpDown, ShoppingCart } from "lucide-react"
 import {
   DndContext,
   closestCenter,
@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { GroceryItemRow } from "./GroceryItemRow"
 import { GroceryAddInput } from "./GroceryAddInput"
 import { GroceryEditSheet } from "./GroceryEditSheet"
+import { CategoryOrderSheet } from "./CategoryOrderSheet"
 import { db } from "@/lib/local/db"
 import {
   addGroceryItem,
@@ -35,6 +36,8 @@ import {
 } from "@/lib/local/mutations"
 import { parseIngredient } from "@/lib/ingredients"
 import { showUndo } from "@/lib/undo"
+import { guessCategory, orderedCategories } from "@/lib/grocery-categories"
+import { useMeta } from "@/components/sync/SyncProvider"
 import type { LocalGroceryItem } from "@/types/sync"
 
 const byOrder = (a: LocalGroceryItem, b: LocalGroceryItem) =>
@@ -73,7 +76,9 @@ function SortableGroceryItem({
 }
 
 export function GroceryClient() {
+  const meta = useMeta()
   const items = useLiveQuery(async () => (await db.groceryItems.toArray()).sort(byOrder), [], [])
+  const [orderSheet, setOrderSheet] = useState<{ key: number; open: boolean } | null>(null)
   // A new key per opening remounts the edit form with fresh values
   const openCount = useRef(0)
   const [editing, setEditing] = useState<{ key: number; item: LocalGroceryItem; open: boolean } | null>(null)
@@ -82,18 +87,29 @@ export function GroceryClient() {
   const checked = items.filter((i) => i.checked)
   const hasChecked = checked.length > 0
 
+  // Unticked items grouped by store section, in the family's store order.
+  // Items without a section yet (added before sections existed) are guessed from their name.
+  const sectionOf = (item: LocalGroceryItem) => item.category ?? guessCategory(item.name, meta.categoryHints)
+  const sections = orderedCategories(meta.categoryOrder)
+    .map((category) => ({ category, items: unchecked.filter((i) => sectionOf(i) === category.key) }))
+    .filter((section) => section.items.length > 0)
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
+  // Items can be dragged within their section; tap an item to move it to another one
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = unchecked.findIndex((i) => i.id === active.id)
-    const newIndex = unchecked.findIndex((i) => i.id === over.id)
-    const reordered = arrayMove(unchecked, oldIndex, newIndex)
-    void reorderGroceryItems([...reordered, ...checked].map((i) => i.id))
+    const section = sections.find((s) => s.items.some((i) => i.id === active.id))
+    if (!section || !section.items.some((i) => i.id === over.id)) return
+    const from = section.items.findIndex((i) => i.id === active.id)
+    const to = section.items.findIndex((i) => i.id === over.id)
+    const moved = arrayMove(section.items, from, to)
+    const ordered = sections.flatMap((s) => (s === section ? moved : s.items))
+    void reorderGroceryItems([...ordered, ...checked].map((i) => i.id))
   }
 
   const handleToggle = (id: string, newChecked: boolean) => void setGroceryChecked(id, newChecked)
@@ -128,17 +144,38 @@ export function GroceryClient() {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <div className="space-y-0.5">
-            <SortableContext items={unchecked.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-              {unchecked.map((item) => (
-                <SortableGroceryItem
-                  key={item.id}
-                  item={item}
-                  onToggle={handleToggle}
-                  onDelete={handleDelete}
-                  onEdit={handleEdit}
-                />
-              ))}
-            </SortableContext>
+            {sections.length > 0 && (
+              <div className="flex justify-end -mt-1">
+                <button
+                  onClick={() => setOrderSheet({ key: ++openCount.current, open: true })}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground min-h-[32px] px-1"
+                >
+                  <ArrowUpDown className="size-3.5" />
+                  Butikkrekkefølge
+                </button>
+              </div>
+            )}
+            {sections.map(({ category, items: sectionItems }) => (
+              <section key={category.key} aria-label={category.label} className="pt-2 first:pt-0">
+                <h2 className="flex items-center gap-1.5 px-1 pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span aria-hidden className="text-sm normal-case">
+                    {category.emoji}
+                  </span>
+                  {category.label}
+                </h2>
+                <SortableContext items={sectionItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  {sectionItems.map((item) => (
+                    <SortableGroceryItem
+                      key={item.id}
+                      item={item}
+                      onToggle={handleToggle}
+                      onDelete={handleDelete}
+                      onEdit={handleEdit}
+                    />
+                  ))}
+                </SortableContext>
+              </section>
+            ))}
 
             {checked.length > 0 && (
               <>
@@ -171,6 +208,15 @@ export function GroceryClient() {
             Fjern avkryssede ({checked.length})
           </Button>
         </div>
+      )}
+
+      {orderSheet && (
+        <CategoryOrderSheet
+          key={orderSheet.key}
+          open={orderSheet.open}
+          onOpenChange={(open) => setOrderSheet({ ...orderSheet, open })}
+          order={meta.categoryOrder}
+        />
       )}
 
       {editing && (

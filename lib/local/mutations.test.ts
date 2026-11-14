@@ -15,7 +15,7 @@ beforeEach(async () => {
 })
 
 describe("grocery editing", () => {
-  it("edits name and quantity but keeps the tick and position", async () => {
+  it("edits name and quantity but keeps the tick and position; a fixed typo gets a fresh section", async () => {
     await m.addGroceryItem("Mel k", null)
     const [item] = await db.groceryItems.toArray()
     await m.setGroceryChecked(item.id, true)
@@ -23,9 +23,18 @@ describe("grocery editing", () => {
 
     await m.updateGroceryItem(item.id, { name: " Melk ", quantity: "2 l" })
 
-    expect(await db.groceryItems.get(item.id)).toMatchObject({ name: "Melk", quantity: "2 l", checked: true })
+    expect(item.category).toBe("torrvarer") // "Mel k" looked like flour
+    expect(await db.groceryItems.get(item.id)).toMatchObject({ name: "Melk", quantity: "2 l", checked: true, category: "meieri" })
     expect(await ops()).toEqual([
-      { type: "grocery.upsert", id: item.id, name: "Melk", quantity: "2 l", checked: true, sortOrder: item.sortOrder },
+      {
+        type: "grocery.upsert",
+        id: item.id,
+        name: "Melk",
+        quantity: "2 l",
+        category: "meieri",
+        checked: true,
+        sortOrder: item.sortOrder,
+      },
     ])
   })
 
@@ -53,6 +62,55 @@ describe("grocery editing", () => {
 
     await m.restoreGroceryItems(removed)
     expect(await db.groceryItems.count()).toBe(2)
+  })
+})
+
+describe("grocery sections", () => {
+  beforeEach(async () => {
+    await db.meta.put({
+      key: "meta",
+      me: { id: "me", name: "Silje", email: null, image: null },
+      role: "admin",
+      familyId: "fam",
+      familyName: "Familien",
+      staples: [],
+      categoryOrder: [],
+      categoryHints: {},
+      lastSyncedAt: "2026-11-14T10:00:00.000Z",
+    })
+  })
+
+  it("guesses the section when adding", async () => {
+    await m.addGroceryItem("lettmelk")
+    await m.addGroceryItems([{ name: "kyllingfilet", quantity: "400 g" }])
+    const items = await db.groceryItems.toArray()
+    expect(Object.fromEntries(items.map((i) => [i.name, i.category]))).toEqual({
+      lettmelk: "meieri",
+      kyllingfilet: "kjott-fisk",
+    })
+  })
+
+  it("learns a section picked by hand and uses it next time", async () => {
+    await m.addGroceryItem("pizzadeig") // guessed as frozen
+    const [item] = await db.groceryItems.toArray()
+    expect(item.category).toBe("frys")
+    await db.outbox.clear()
+
+    await m.updateGroceryItem(item.id, { name: "pizzadeig", quantity: null, category: "meieri" })
+    expect((await ops()).map((o) => o.type)).toEqual(["grocery.upsert", "family.setCategoryHint"])
+    expect((await db.meta.get("meta"))?.categoryHints).toEqual({ pizzadeig: "meieri" })
+
+    await m.deleteGroceryItem(item.id)
+    await m.addGroceryItem("Pizzadeig")
+    expect((await db.groceryItems.toArray())[0].category).toBe("meieri")
+  })
+
+  it("doesn't learn when the section wasn't changed", async () => {
+    await m.addGroceryItem("melk")
+    const [item] = await db.groceryItems.toArray()
+    await db.outbox.clear()
+    await m.updateGroceryItem(item.id, { name: "melk", quantity: "1 l", category: "meieri" })
+    expect((await ops()).map((o) => o.type)).toEqual(["grocery.upsert"])
   })
 })
 
