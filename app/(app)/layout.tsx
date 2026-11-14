@@ -3,6 +3,7 @@ import { BottomTabBar } from "@/components/nav/bottom-tab-bar"
 import { TopHeader } from "@/components/nav/top-header"
 import { SyncProvider } from "@/components/sync/SyncProvider"
 import { ServiceWorkerRegister } from "@/components/sync/ServiceWorkerRegister"
+import { UndoToast } from "@/components/UndoToast"
 
 // Static shell: no server data fetching here. proxy.ts guards sign-in, and the
 // data comes from the local database, kept up to date by SyncProvider.
@@ -17,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <BottomTabBar />
+      <UndoToast />
       <ServiceWorkerRegister />
     </div>
   )

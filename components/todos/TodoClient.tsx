@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useLiveQuery } from "dexie-react-hooks"
 import { CheckSquare, Plus } from "lucide-react"
 import {
@@ -24,7 +24,14 @@ import { Button } from "@/components/ui/button"
 import { TodoItemRow } from "./TodoItemRow"
 import { TodoSheet } from "./TodoSheet"
 import { db } from "@/lib/local/db"
-import { setTodoCompleted, deleteTodoItem, reorderTodoItems } from "@/lib/local/mutations"
+import {
+  setTodoCompleted,
+  deleteTodoItem,
+  reorderTodoItems,
+  restoreTodoItems,
+  clearCompletedTodos,
+} from "@/lib/local/mutations"
+import { showUndo } from "@/lib/undo"
 import type { LocalTodoItem } from "@/types/sync"
 
 const byOrder = (a: LocalTodoItem, b: LocalTodoItem) =>
@@ -34,10 +41,12 @@ function SortableTodoItem({
   item,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   item: LocalTodoItem
   onToggle: (id: string, completed: boolean) => void
   onDelete: (id: string) => void
+  onEdit: (item: LocalTodoItem) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -53,6 +62,7 @@ function SortableTodoItem({
         item={item}
         onToggle={onToggle}
         onDelete={onDelete}
+        onEdit={onEdit}
         dragHandleProps={{ ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>}
       />
     </div>
@@ -62,7 +72,10 @@ function SortableTodoItem({
 export function TodoClient() {
   const items = useLiveQuery(async () => (await db.todoItems.toArray()).sort(byOrder), [], [])
   const familyMembers = useLiveQuery(() => db.members.toArray(), [], [])
-  const [sheetOpen, setSheetOpen] = useState(false)
+  // A new key per opening remounts the form with fresh values
+  const openCount = useRef(0)
+  const [sheet, setSheet] = useState<{ key: number; item: LocalTodoItem | null; open: boolean } | null>(null)
+  const openSheet = (item: LocalTodoItem | null) => setSheet({ key: ++openCount.current, item, open: true })
 
   const incomplete = items.filter((i) => !i.completed)
   const completed = items.filter((i) => i.completed)
@@ -82,7 +95,18 @@ export function TodoClient() {
   }
 
   const handleToggle = (id: string, newCompleted: boolean) => void setTodoCompleted(id, newCompleted)
-  const handleDelete = (id: string) => void deleteTodoItem(id)
+
+  async function handleDelete(id: string) {
+    const item = await deleteTodoItem(id)
+    if (item) showUndo(`«${item.title}» slettet`, () => void restoreTodoItems([item]))
+  }
+
+  async function handleClearCompleted() {
+    const removed = await clearCompletedTodos()
+    if (removed.length > 0) {
+      showUndo(`${removed.length} fullførte fjernet`, () => void restoreTodoItems(removed))
+    }
+  }
 
   return (
     <div className="space-y-1">
@@ -101,6 +125,7 @@ export function TodoClient() {
                   item={item}
                   onToggle={handleToggle}
                   onDelete={handleDelete}
+                  onEdit={openSheet}
                 />
               ))}
             </SortableContext>
@@ -114,6 +139,7 @@ export function TodoClient() {
                     item={item}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onEdit={openSheet}
                   />
                 ))}
               </>
@@ -124,7 +150,7 @@ export function TodoClient() {
 
       <div className="pt-3">
         <Button
-          onClick={() => setSheetOpen(true)}
+          onClick={() => openSheet(null)}
           variant="outline"
           className="w-full min-h-[44px] gap-2"
         >
@@ -133,11 +159,27 @@ export function TodoClient() {
         </Button>
       </div>
 
-      <TodoSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        familyMembers={familyMembers}
-      />
+      {completed.length > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void handleClearCompleted()}
+          className="w-full text-muted-foreground"
+        >
+          Fjern fullførte ({completed.length})
+        </Button>
+      )}
+
+      {sheet && (
+        <TodoSheet
+          key={sheet.key}
+          open={sheet.open}
+          onOpenChange={(open) => setSheet({ ...sheet, open })}
+          familyMembers={familyMembers}
+          item={sheet.item}
+          onDelete={(item) => void handleDelete(item.id)}
+        />
+      )}
     </div>
   )
 }

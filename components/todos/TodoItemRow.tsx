@@ -32,10 +32,11 @@ interface TodoItemRowProps {
   item: LocalTodoItem
   onToggle: (id: string, completed: boolean) => void
   onDelete: (id: string) => void
+  onEdit: (item: LocalTodoItem) => void
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>
 }
 
-export function TodoItemRow({ item, onToggle, onDelete, dragHandleProps }: TodoItemRowProps) {
+export function TodoItemRow({ item, onToggle, onDelete, onEdit, dragHandleProps }: TodoItemRowProps) {
   return (
     <div className="flex items-center gap-2 px-1 min-h-[52px] group">
       {dragHandleProps && (
@@ -64,7 +65,12 @@ export function TodoItemRow({ item, onToggle, onDelete, dragHandleProps }: TodoI
         )}
       </button>
 
-      <div className="flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={() => onEdit(item)}
+        aria-label={`Rediger ${item.title}`}
+        className="flex-1 min-w-0 self-stretch flex flex-col justify-center text-left"
+      >
         <span
           className={cn(
             "text-sm block leading-tight",
@@ -86,7 +92,7 @@ export function TodoItemRow({ item, onToggle, onDelete, dragHandleProps }: TodoI
             </span>
           )}
         </div>
-      </div>
+      </button>
 
       <Button
         variant="ghost"

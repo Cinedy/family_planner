@@ -28,7 +28,7 @@ export function GroceryAddInput({ onAdd }: GroceryAddInputProps) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-        placeholder="Legg til vare..."
+        placeholder="Legg til vare, f.eks. 2 l melk"
         className="flex-1 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       <Button

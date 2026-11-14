@@ -14,30 +14,61 @@ import type { LocalDinner, LocalGroceryItem, LocalTodoItem } from "@/types/sync"
 const newId = () => crypto.randomUUID()
 const now = () => new Date().toISOString()
 
-async function change(tables: Table[], fn: (queue: (op: SyncOp) => void) => Promise<void>) {
-  await db.transaction("rw", [...tables, db.outbox], async () => {
+async function change<T = void>(tables: Table[], fn: (queue: (op: SyncOp) => void) => Promise<T>): Promise<T> {
+  const result = await db.transaction("rw", [...tables, db.outbox], async () => {
     const ops: SyncOp[] = []
-    await fn((op) => ops.push(op))
+    const value = await fn((op) => ops.push(op))
     await db.outbox.bulkAdd(ops.map((op) => ({ op })))
+    return value
   })
   requestSync()
+  return result
 }
+
+const groceryUpsert = (item: LocalGroceryItem): SyncOp => ({
+  type: "grocery.upsert",
+  ...pick(item, ["id", "name", "quantity", "checked", "sortOrder"]),
+})
+const todoUpsert = (item: LocalTodoItem): SyncOp => ({
+  type: "todo.upsert",
+  ...pick(item, ["id", "title", "completed", "dueDate", "assignedToId", "sortOrder"]),
+})
+const dueDateFromInput = (date: string | undefined) =>
+  date ? fromZonedTime(`${date}T00:00:00`, TIMEZONE).toISOString() : null
 
 // ─── Handleliste ───────────────────────────────────────────────────────────
 
-export function addGroceryItem(name: string) {
+export function addGroceryItem(name: string, quantity: string | null = null) {
   return change([db.groceryItems], async (queue) => {
     const items = await db.groceryItems.toArray()
     const item: LocalGroceryItem = {
       id: newId(),
       name: name.trim(),
-      quantity: null,
+      quantity: quantity?.trim() || null,
       checked: false,
       sortOrder: items.reduce((max, i) => Math.max(max, i.sortOrder), -1) + 1,
       createdAt: now(),
     }
     await db.groceryItems.add(item)
-    queue({ type: "grocery.upsert", ...pick(item, ["id", "name", "quantity", "checked", "sortOrder"]) })
+    queue(groceryUpsert(item))
+  })
+}
+
+export function updateGroceryItem(id: string, fields: { name: string; quantity: string | null }) {
+  return change([db.groceryItems], async (queue) => {
+    const item = await db.groceryItems.get(id)
+    if (!item) return
+    const updated = { ...item, name: fields.name.trim(), quantity: fields.quantity?.trim() || null }
+    await db.groceryItems.put(updated)
+    queue(groceryUpsert(updated))
+  })
+}
+
+/** Puts deleted items back (the "Angre" button). */
+export function restoreGroceryItems(items: LocalGroceryItem[]) {
+  return change([db.groceryItems], async (queue) => {
+    await db.groceryItems.bulkPut(items)
+    items.forEach((item) => queue(groceryUpsert(item)))
   })
 }
 
@@ -56,7 +87,7 @@ export function addGroceryItems(items: { name: string; quantity: string | null }
         createdAt: now(),
       }
       await db.groceryItems.add(item)
-      queue({ type: "grocery.upsert", ...pick(item, ["id", "name", "quantity", "checked", "sortOrder"]) })
+      queue(groceryUpsert(item))
     }
   })
 }
@@ -68,10 +99,13 @@ export function setGroceryChecked(id: string, checked: boolean) {
   })
 }
 
+/** Returns the deleted item so it can be restored. */
 export function deleteGroceryItem(id: string) {
   return change([db.groceryItems], async (queue) => {
+    const item = await db.groceryItems.get(id)
     await db.groceryItems.delete(id)
     queue({ type: "grocery.delete", id })
+    return item
   })
 }
 
@@ -82,11 +116,14 @@ export function reorderGroceryItems(ids: string[]) {
   })
 }
 
+/** Returns the removed items so they can be restored. */
 export function clearCheckedGroceryItems() {
   return change([db.groceryItems], async (queue) => {
-    const ids = (await db.groceryItems.filter((i) => i.checked).toArray()).map((i) => i.id)
+    const items = await db.groceryItems.filter((i) => i.checked).toArray()
+    const ids = items.map((i) => i.id)
     await db.groceryItems.bulkDelete(ids)
     queue({ type: "grocery.clearChecked", ids })
+    return items
   })
 }
 
@@ -100,17 +137,40 @@ export function addTodoItem(input: { title: string; dueDate?: string; assignedTo
       id: newId(),
       title: input.title.trim(),
       completed: false,
-      dueDate: input.dueDate ? fromZonedTime(`${input.dueDate}T00:00:00`, TIMEZONE).toISOString() : null,
+      dueDate: dueDateFromInput(input.dueDate),
       assignedToId: assignedTo?.id ?? null,
       assignedTo,
       sortOrder: items.reduce((max, i) => Math.max(max, i.sortOrder), -1) + 1,
       createdAt: now(),
     }
     await db.todoItems.add(item)
-    queue({
-      type: "todo.upsert",
-      ...pick(item, ["id", "title", "completed", "dueDate", "assignedToId", "sortOrder"]),
-    })
+    queue(todoUpsert(item))
+  })
+}
+
+/** dueDate is the date input's value ("yyyy-MM-dd"), or "" for no due date. */
+export function updateTodoItem(id: string, fields: { title: string; dueDate: string; assignedToId: string | null }) {
+  return change([db.todoItems, db.members], async (queue) => {
+    const item = await db.todoItems.get(id)
+    if (!item) return
+    const assignedTo = fields.assignedToId ? ((await db.members.get(fields.assignedToId)) ?? null) : null
+    const updated: LocalTodoItem = {
+      ...item,
+      title: fields.title.trim(),
+      dueDate: dueDateFromInput(fields.dueDate),
+      assignedToId: assignedTo?.id ?? null,
+      assignedTo,
+    }
+    await db.todoItems.put(updated)
+    queue(todoUpsert(updated))
+  })
+}
+
+/** Puts deleted to-dos back (the "Angre" button). */
+export function restoreTodoItems(items: LocalTodoItem[]) {
+  return change([db.todoItems], async (queue) => {
+    await db.todoItems.bulkPut(items)
+    items.forEach((item) => queue(todoUpsert(item)))
   })
 }
 
@@ -121,10 +181,23 @@ export function setTodoCompleted(id: string, completed: boolean) {
   })
 }
 
+/** Returns the deleted to-do so it can be restored. */
 export function deleteTodoItem(id: string) {
   return change([db.todoItems], async (queue) => {
+    const item = await db.todoItems.get(id)
     await db.todoItems.delete(id)
     queue({ type: "todo.delete", id })
+    return item
+  })
+}
+
+/** Removes all completed to-dos; returns them so they can be restored. */
+export function clearCompletedTodos() {
+  return change([db.todoItems], async (queue) => {
+    const items = await db.todoItems.filter((i) => i.completed).toArray()
+    await db.todoItems.bulkDelete(items.map((i) => i.id))
+    items.forEach((i) => queue({ type: "todo.delete", id: i.id }))
+    return items
   })
 }
 

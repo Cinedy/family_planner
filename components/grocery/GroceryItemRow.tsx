@@ -9,10 +9,11 @@ interface GroceryItemRowProps {
   item: LocalGroceryItem
   onToggle: (id: string, checked: boolean) => void
   onDelete: (id: string) => void
+  onEdit: (item: LocalGroceryItem) => void
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>
 }
 
-export function GroceryItemRow({ item, onToggle, onDelete, dragHandleProps }: GroceryItemRowProps) {
+export function GroceryItemRow({ item, onToggle, onDelete, onEdit, dragHandleProps }: GroceryItemRowProps) {
   return (
     <div className="flex items-center gap-2 px-1 min-h-[44px] group">
       {dragHandleProps && (
@@ -41,7 +42,12 @@ export function GroceryItemRow({ item, onToggle, onDelete, dragHandleProps }: Gr
         )}
       </button>
 
-      <div className="flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={() => onEdit(item)}
+        aria-label={`Rediger ${item.name}`}
+        className="flex-1 min-w-0 self-stretch flex items-center text-left"
+      >
         <span
           className={cn(
             "text-sm transition-colors",
@@ -53,7 +59,7 @@ export function GroceryItemRow({ item, onToggle, onDelete, dragHandleProps }: Gr
         {item.quantity && (
           <span className="text-xs text-muted-foreground ml-1.5">{item.quantity}</span>
         )}
-      </div>
+      </button>
 
       <Button
         variant="ghost"

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useState } from "react"
 import { useLiveQuery } from "dexie-react-hooks"
 import { ShoppingCart } from "lucide-react"
 import {
@@ -22,6 +23,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { GroceryItemRow } from "./GroceryItemRow"
 import { GroceryAddInput } from "./GroceryAddInput"
+import { GroceryEditSheet } from "./GroceryEditSheet"
 import { db } from "@/lib/local/db"
 import {
   addGroceryItem,
@@ -29,7 +31,10 @@ import {
   deleteGroceryItem,
   clearCheckedGroceryItems,
   reorderGroceryItems,
+  restoreGroceryItems,
 } from "@/lib/local/mutations"
+import { parseIngredient } from "@/lib/ingredients"
+import { showUndo } from "@/lib/undo"
 import type { LocalGroceryItem } from "@/types/sync"
 
 const byOrder = (a: LocalGroceryItem, b: LocalGroceryItem) =>
@@ -39,10 +44,12 @@ function SortableGroceryItem({
   item,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   item: LocalGroceryItem
   onToggle: (id: string, checked: boolean) => void
   onDelete: (id: string) => void
+  onEdit: (item: LocalGroceryItem) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -58,6 +65,7 @@ function SortableGroceryItem({
         item={item}
         onToggle={onToggle}
         onDelete={onDelete}
+        onEdit={onEdit}
         dragHandleProps={{ ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>}
       />
     </div>
@@ -66,6 +74,9 @@ function SortableGroceryItem({
 
 export function GroceryClient() {
   const items = useLiveQuery(async () => (await db.groceryItems.toArray()).sort(byOrder), [], [])
+  // A new key per opening remounts the edit form with fresh values
+  const openCount = useRef(0)
+  const [editing, setEditing] = useState<{ key: number; item: LocalGroceryItem; open: boolean } | null>(null)
 
   const unchecked = items.filter((i) => !i.checked)
   const checked = items.filter((i) => i.checked)
@@ -86,9 +97,25 @@ export function GroceryClient() {
   }
 
   const handleToggle = (id: string, newChecked: boolean) => void setGroceryChecked(id, newChecked)
-  const handleDelete = (id: string) => void deleteGroceryItem(id)
-  const handleAdd = (name: string) => addGroceryItem(name)
-  const handleClearChecked = () => void clearCheckedGroceryItems()
+  const handleEdit = (item: LocalGroceryItem) => setEditing({ key: ++openCount.current, item, open: true })
+
+  async function handleDelete(id: string) {
+    const item = await deleteGroceryItem(id)
+    if (item) showUndo(`«${item.name}» slettet`, () => void restoreGroceryItems([item]))
+  }
+
+  // "2 l melk" → melk · 2 l
+  function handleAdd(text: string) {
+    const { name, quantity } = parseIngredient(text)
+    void addGroceryItem(name, quantity)
+  }
+
+  async function handleClearChecked() {
+    const removed = await clearCheckedGroceryItems()
+    if (removed.length > 0) {
+      showUndo(`${removed.length} ${removed.length === 1 ? "vare" : "varer"} fjernet`, () => void restoreGroceryItems(removed))
+    }
+  }
 
   return (
     <div className="space-y-1">
@@ -108,6 +135,7 @@ export function GroceryClient() {
                   item={item}
                   onToggle={handleToggle}
                   onDelete={handleDelete}
+                  onEdit={handleEdit}
                 />
               ))}
             </SortableContext>
@@ -121,6 +149,7 @@ export function GroceryClient() {
                     item={item}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onEdit={handleEdit}
                   />
                 ))}
               </>
@@ -142,6 +171,16 @@ export function GroceryClient() {
             Fjern avkryssede ({checked.length})
           </Button>
         </div>
+      )}
+
+      {editing && (
+        <GroceryEditSheet
+          key={editing.key}
+          open={editing.open}
+          onOpenChange={(open) => setEditing({ ...editing, open })}
+          item={editing.item}
+          onDelete={(item) => void handleDelete(item.id)}
+        />
       )}
     </div>
   )
