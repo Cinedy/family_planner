@@ -16,13 +16,32 @@ export const CATEGORIES = [
   { key: "annet", label: "Annet", emoji: "🛒" },
 ] as const
 
-export type CategoryKey = (typeof CATEGORIES)[number]["key"]
-export const FALLBACK_CATEGORY: CategoryKey = "annet"
+type CategoryKey = (typeof CATEGORIES)[number]["key"]
+const FALLBACK_CATEGORY: CategoryKey = "annet"
 /** A typical Norwegian store walk; must match the default in prisma/schema.prisma */
 export const DEFAULT_CATEGORY_ORDER: CategoryKey[] = CATEGORIES.map((c) => c.key)
 
 const BY_KEY = new Map<string, (typeof CATEGORIES)[number]>(CATEGORIES.map((c) => [c.key, c]))
-export const categoryInfo = (key: string) => BY_KEY.get(key) ?? BY_KEY.get(FALLBACK_CATEGORY)!
+
+/** Order within a section: the family's drag order, then when it was added. */
+export const byListOrder = (a: { sortOrder: number; createdAt: string }, b: { sortOrder: number; createdAt: string }) =>
+  a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
+
+/**
+ * Items grouped by store section, sections in the family's order, empty ones left out.
+ * Items without a section (added before sections existed) are guessed from their name.
+ */
+export function groupBySection<T extends { name: string; category: string | null; sortOrder: number; createdAt: string }>(
+  items: T[],
+  order: string[] | undefined,
+  hints: Record<string, string> | undefined
+) {
+  const sectionOf = (item: T) => item.category ?? guessCategory(item.name, hints)
+  const sorted = [...items].sort(byListOrder)
+  return orderedCategories(order)
+    .map((category) => ({ category, items: sorted.filter((i) => sectionOf(i) === category.key) }))
+    .filter((section) => section.items.length > 0)
+}
 
 /** The family's order, with any unknown keys dropped and any missing ones appended. */
 export function orderedCategories(order: string[] | undefined) {

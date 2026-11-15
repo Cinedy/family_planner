@@ -8,6 +8,7 @@ import { MonthGrid } from "./MonthGrid"
 import { DayEventList } from "./DayEventList"
 import { AgendaList } from "./AgendaList"
 import { EventSheet } from "./EventSheet"
+import { PersonAvatar } from "@/components/PersonAvatar"
 import { db } from "@/lib/local/db"
 import { useMeta } from "@/components/sync/SyncProvider"
 import { cn } from "@/lib/utils"
@@ -92,14 +93,7 @@ export function CalendarClient() {
               aria-pressed={person === m.id}
               className={chipClass(person === m.id)}
             >
-              <span className="size-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium overflow-hidden">
-                {m.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.image} alt="" className="size-full object-cover" />
-                ) : (
-                  (m.name?.[0] ?? "?").toUpperCase()
-                )}
-              </span>
+              <PersonAvatar person={m} />
               {m.name?.split(" ")[0] ?? "Ukjent"}
             </button>
           ))}

@@ -5,6 +5,8 @@ import { applyOps } from "@/lib/sync/apply"
 import { syncOpSchema, type SyncOp } from "@/lib/sync/ops"
 
 const noStore = { "Cache-Control": "no-store" }
+// The app sends at most 200 changes per request
+const MAX_OPS = 500
 
 async function getContext() {
   const session = await auth()
@@ -31,6 +33,9 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { ops?: unknown } | null
   if (!body || !Array.isArray(body.ops)) {
     return Response.json({ error: "invalid body" }, { status: 400, headers: noStore })
+  }
+  if (body.ops.length > MAX_OPS) {
+    return Response.json({ error: "too many ops" }, { status: 413, headers: noStore })
   }
 
   // Validate each op on its own: an invalid op is dropped instead of blocking the queue

@@ -1,14 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { format, parseISO } from "date-fns"
-import { toZonedTime } from "date-fns-tz"
+import { PersonAvatar } from "@/components/PersonAvatar"
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { inputClass, labelClass } from "@/components/ui/form-styles"
 import { cn } from "@/lib/utils"
 import { addTodoItem, updateTodoItem } from "@/lib/local/mutations"
-import { TIMEZONE } from "@/lib/calendar-utils"
+import { dueDateInputValue } from "@/lib/due-dates"
 import type { LocalTodoItem, Member } from "@/types/sync"
 
 interface TodoSheetProps {
@@ -20,13 +19,10 @@ interface TodoSheetProps {
   onDelete: (item: LocalTodoItem) => void
 }
 
-/** Stored due date (UTC) → the date input's "yyyy-MM-dd" in Oslo time */
-const toDateInput = (iso: string | null) => (iso ? format(toZonedTime(parseISO(iso), TIMEZONE), "yyyy-MM-dd") : "")
-
 // The parent remounts this component (via `key`) each time it opens.
 export function TodoSheet({ open, onOpenChange, familyMembers, item, onDelete }: TodoSheetProps) {
   const [title, setTitle] = useState(item?.title ?? "")
-  const [dueDate, setDueDate] = useState(toDateInput(item?.dueDate ?? null))
+  const [dueDate, setDueDate] = useState(dueDateInputValue(item?.dueDate ?? null))
   const [assignedToId, setAssignedToId] = useState<string | null>(item?.assignedToId ?? null)
 
   function handleSubmit(e: React.FormEvent) {
@@ -97,14 +93,7 @@ export function TodoSheet({ open, onOpenChange, familyMembers, item, onDelete }:
                           : "border-input bg-background hover:bg-muted"
                       )}
                     >
-                      <span className="size-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium overflow-hidden shrink-0">
-                        {member.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={member.image} alt={member.name ?? ""} className="size-full object-cover" />
-                        ) : (
-                          (member.name?.[0] ?? "?").toUpperCase()
-                        )}
-                      </span>
+                      <PersonAvatar person={member} />
                       {member.name ?? "Ukjent"}
                     </button>
                   )

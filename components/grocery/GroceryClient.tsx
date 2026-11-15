@@ -36,12 +36,9 @@ import {
 } from "@/lib/local/mutations"
 import { parseIngredient } from "@/lib/ingredients"
 import { showUndo } from "@/lib/undo"
-import { guessCategory, orderedCategories } from "@/lib/grocery-categories"
+import { byListOrder, groupBySection } from "@/lib/grocery-categories"
 import { useMeta } from "@/components/sync/SyncProvider"
 import type { LocalGroceryItem } from "@/types/sync"
-
-const byOrder = (a: LocalGroceryItem, b: LocalGroceryItem) =>
-  a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
 
 function SortableGroceryItem({
   item,
@@ -77,7 +74,7 @@ function SortableGroceryItem({
 
 export function GroceryClient() {
   const meta = useMeta()
-  const items = useLiveQuery(async () => (await db.groceryItems.toArray()).sort(byOrder), [], [])
+  const items = useLiveQuery(async () => (await db.groceryItems.toArray()).sort(byListOrder), [], [])
   const [orderSheet, setOrderSheet] = useState<{ key: number; open: boolean } | null>(null)
   // A new key per opening remounts the edit form with fresh values
   const openCount = useRef(0)
@@ -87,12 +84,8 @@ export function GroceryClient() {
   const checked = items.filter((i) => i.checked)
   const hasChecked = checked.length > 0
 
-  // Unticked items grouped by store section, in the family's store order.
-  // Items without a section yet (added before sections existed) are guessed from their name.
-  const sectionOf = (item: LocalGroceryItem) => item.category ?? guessCategory(item.name, meta.categoryHints)
-  const sections = orderedCategories(meta.categoryOrder)
-    .map((category) => ({ category, items: unchecked.filter((i) => sectionOf(i) === category.key) }))
-    .filter((section) => section.items.length > 0)
+  // Unticked items grouped by store section, in the family's store order
+  const sections = groupBySection(unchecked, meta.categoryOrder, meta.categoryHints)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

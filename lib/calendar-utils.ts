@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, format, parseISO, startOfDay } from "date-fns"
-import { fromZonedTime, toZonedTime } from "date-fns-tz"
+import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz"
 import { RRule } from "rrule"
 import type { SerializedEvent } from "@/types/calendar"
 
@@ -146,6 +146,9 @@ export type Occurrence = {
 /** Calendar-day key used for grouping and for skipped days of a series. */
 export const dayKey = (date: Date) => format(date, "yyyy-MM-dd")
 
+/** The calendar day in Oslo, whatever timezone the phone is set to. */
+export const osloDayKey = (date: Date) => formatInTimeZone(date, TIMEZONE, "yyyy-MM-dd")
+
 /** Number of days an all-day event covers (1 for a single day). */
 function allDaySpan(event: SerializedEvent): number {
   if (!event.endTime) return 1
@@ -153,7 +156,7 @@ function allDaySpan(event: SerializedEvent): number {
 }
 
 /** When an occurrence starting at `start` ends. */
-export function occurrenceEnd(event: SerializedEvent, start: Date): Date {
+function occurrenceEnd(event: SerializedEvent, start: Date): Date {
   if (event.allDay) return addDays(startOfDay(start), allDaySpan(event)) // counted in days, so DST-safe
   const duration = event.endTime ? Date.parse(event.endTime) - Date.parse(event.startTime) : 0
   return new Date(start.getTime() + Math.max(0, duration))
@@ -198,7 +201,7 @@ export function occurrencesBetween(event: SerializedEvent, from: Date, to: Date)
 }
 
 /** Occurrences that overlap [from, to) — including ones that started earlier and are still going. */
-export function occurrences(event: SerializedEvent, from: Date, to: Date): Occurrence[] {
+function occurrences(event: SerializedEvent, from: Date, to: Date): Occurrence[] {
   // Look back far enough to catch a multi-day occurrence that started before `from`
   const lookBack = event.allDay ? allDaySpan(event) * DAY_MS + DAY_MS : occurrenceEnd(event, from).getTime() - from.getTime()
   return occurrencesBetween(event, new Date(from.getTime() - lookBack), to)
@@ -238,12 +241,14 @@ export function occurrencesByDay(events: SerializedEvent[], from: Date, to: Date
   return map
 }
 
-/** The next `limit` occurrences from the start of today (ongoing ones included), within `days` days. */
-export function upcomingOccurrences(events: SerializedEvent[], limit: number, days = 60) {
-  const from = startOfDay(new Date())
+/** The next `limit` occurrences that haven't finished yet (ongoing ones included), within `days` days. */
+export function upcomingOccurrences(events: SerializedEvent[], limit: number, days = 60, now = new Date()) {
+  const from = startOfDay(now)
   const to = addDays(from, days)
+  const finished = (o: Occurrence) => (o.end > o.start ? o.end : o.start) <= now
   return events
     .flatMap((event) => occurrences(event, from, to))
+    .filter((o) => !finished(o))
     .sort((a, b) => a.start.getTime() - b.start.getTime())
     .slice(0, limit)
 }

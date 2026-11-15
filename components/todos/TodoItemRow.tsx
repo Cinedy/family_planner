@@ -1,24 +1,22 @@
 "use client"
 
 import { GripVertical, X } from "lucide-react"
-import { format, isToday, isPast, parseISO } from "date-fns"
-import { nb } from "date-fns/locale"
-import { toZonedTime } from "date-fns-tz"
+import { PersonAvatar } from "@/components/PersonAvatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { TIMEZONE } from "@/lib/calendar-utils"
+import { dueStatus } from "@/lib/due-dates"
 import type { LocalTodoItem } from "@/types/sync"
 
 function DueDatePill({ dueDate }: { dueDate: string }) {
-  const zoned = toZonedTime(parseISO(dueDate), TIMEZONE)
-  const label = isToday(zoned) ? "I dag" : format(zoned, "d. MMM", { locale: nb })
-  const isOverdue = !isToday(zoned) && isPast(zoned)
+  const due = dueStatus(dueDate)
+  if (!due) return null
+  const { label } = due
 
-  if (isOverdue) {
+  if (due.state === "overdue") {
     return <Badge variant="destructive">{label}</Badge>
   }
-  if (isToday(zoned)) {
+  if (due.state === "today") {
     return (
       <Badge className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
         {label}
@@ -82,14 +80,7 @@ export function TodoItemRow({ item, onToggle, onDelete, onEdit, dragHandleProps 
         <div className="flex items-center gap-1.5 mt-0.5">
           {item.dueDate && !item.completed && <DueDatePill dueDate={item.dueDate} />}
           {item.assignedTo && (
-            <span className="size-4 rounded-full bg-muted border border-background flex items-center justify-center text-[9px] font-medium overflow-hidden shrink-0">
-              {item.assignedTo.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.assignedTo.image} alt={item.assignedTo.name ?? ""} className="size-full object-cover" />
-              ) : (
-                (item.assignedTo.name?.[0] ?? "?").toUpperCase()
-              )}
-            </span>
+            <PersonAvatar person={item.assignedTo} className="size-4" />
           )}
         </div>
       </button>

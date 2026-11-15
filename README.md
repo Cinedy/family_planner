@@ -72,6 +72,7 @@ When adding a field that phones sync, update the op in `lib/sync/ops.ts` (make n
 
 ## Known limitations
 
+- **Time zone**: times are stored in UTC and entered/shown in Europe/Oslo. The calendar grid groups days by the phone's own time zone, so it assumes the phone is set to Norwegian time (it is for this family; travelling abroad shifts which day late-evening events land on).
 - **Invitation emails** only reach the address registered on the Resend account until a domain is verified in Resend. Until then, copy the invite link from the Resend dashboard and send it yourself.
 - **Microsoft sign-in** requires an app registration in Azure, which needs an Azure directory; Hotmail users can instead create a Google account with their existing email address.
 

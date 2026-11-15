@@ -2,20 +2,24 @@
 
 import Link from "next/link"
 import { useLiveQuery } from "dexie-react-hooks"
-import { toZonedTime } from "date-fns-tz"
-import { format, getISODay, isToday, isTomorrow, startOfISOWeek } from "date-fns"
+import { formatInTimeZone, toZonedTime } from "date-fns-tz"
+import { addDays, format, getISODay, startOfISOWeek } from "date-fns"
 import { nb } from "date-fns/locale"
 import { CalendarDays, Check, CheckSquare, ChevronRight, ShoppingCart, UtensilsCrossed } from "lucide-react"
 import { db } from "@/lib/local/db"
-import { dayKey, occurrenceTimeLabel, TIMEZONE, upcomingOccurrences } from "@/lib/calendar-utils"
+import { occurrenceTimeLabel, osloDayKey, TIMEZONE, upcomingOccurrences } from "@/lib/calendar-utils"
+import { dueStatus } from "@/lib/due-dates"
+import { groupBySection } from "@/lib/grocery-categories"
+import { useNow } from "@/lib/use-now"
+import { PersonAvatar } from "@/components/PersonAvatar"
 import { setTodoCompleted } from "@/lib/local/mutations"
 import { showUndo } from "@/lib/undo"
 import { useMeta } from "@/components/sync/SyncProvider"
 import { cn } from "@/lib/utils"
 import type { LocalTodoItem } from "@/types/sync"
 
-function getGreeting(name: string | null | undefined): string {
-  const hour = toZonedTime(new Date(), TIMEZONE).getHours()
+function getGreeting(name: string | null | undefined, now: Date): string {
+  const hour = toZonedTime(now, TIMEZONE).getHours()
   const firstName = name?.split(" ")[0] ?? ""
   const suffix = firstName ? `, ${firstName}` : ""
   if (hour < 12) return `God morgen${suffix}!`
@@ -23,10 +27,12 @@ function getGreeting(name: string | null | undefined): string {
   return `God kveld${suffix}!`
 }
 
-function dayLabel(date: Date) {
-  if (isToday(date)) return "I dag"
-  if (isTomorrow(date)) return "I morgen"
-  return format(date, "EEEE d. MMM", { locale: nb })
+/** "I dag", "I morgen" or "fredag 21. nov" — in Oslo days */
+function dayLabel(date: Date, now: Date) {
+  const day = osloDayKey(date)
+  if (day === osloDayKey(now)) return "I dag"
+  if (day === osloDayKey(addDays(now, 1))) return "I morgen"
+  return formatInTimeZone(date, TIMEZONE, "EEEE d. MMM", { locale: nb })
 }
 
 function SectionHeading({ icon: Icon, title, href, linkText }: { icon: typeof CalendarDays; title: string; href: string; linkText: string }) {
@@ -43,25 +49,12 @@ function SectionHeading({ icon: Icon, title, href, linkText }: { icon: typeof Ca
   )
 }
 
-function Avatar({ person }: { person: NonNullable<LocalTodoItem["assignedTo"]> }) {
-  return (
-    <span className="size-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium overflow-hidden shrink-0">
-      {person.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={person.image} alt="" className="size-full object-cover" />
-      ) : (
-        (person.name?.[0] ?? "?").toUpperCase()
-      )}
-    </span>
-  )
-}
-
 export function DashboardClient() {
   const meta = useMeta()
-  const now = toZonedTime(new Date(), TIMEZONE)
-  const weekStart = format(startOfISOWeek(now), "yyyy-MM-dd")
-  const todayIndex = getISODay(now) - 1 // 0 = Monday
-  const todayKey = dayKey(new Date())
+  const now = useNow()
+  const osloNow = toZonedTime(now, TIMEZONE)
+  const weekStart = format(startOfISOWeek(osloNow), "yyyy-MM-dd")
+  const todayIndex = getISODay(osloNow) - 1 // 0 = Monday
 
   const todayDinner = useLiveQuery(
     () => db.dinners.where("weekStart").equals(weekStart).filter((d) => d.day === todayIndex).first(),
@@ -69,28 +62,19 @@ export function DashboardClient() {
   )
   const events = useLiveQuery(() => db.events.toArray(), [], [])
   const openTodos = useLiveQuery(() => db.todoItems.filter((t) => !t.completed).toArray(), [], [])
-  const groceries = useLiveQuery(
-    async () => (await db.groceryItems.filter((i) => !i.checked).toArray()).sort((a, b) => a.sortOrder - b.sortOrder),
-    [],
-    []
-  )
+  const groceries = useLiveQuery(() => db.groceryItems.filter((i) => !i.checked).toArray(), [], [])
+  // Same order as the grocery list: by store section, then the family's order
+  const groceryPreview = groupBySection(groceries, meta.categoryOrder, meta.categoryHints).flatMap((s) => s.items)
 
   // Due today or overdue: overdue first, then the ones assigned to me, then the list order
-  const dueKey = (t: LocalTodoItem) => (t.dueDate ? dayKey(new Date(t.dueDate)) : null)
+  const mine = (t: LocalTodoItem) => Number(t.assignedToId === meta.me.id)
   const dueTodos = openTodos
-    .filter((t) => {
-      const key = dueKey(t)
-      return key !== null && key <= todayKey
-    })
-    .sort(
-      (a, b) =>
-        dueKey(a)!.localeCompare(dueKey(b)!) ||
-        Number(b.assignedToId === meta.me.id) - Number(a.assignedToId === meta.me.id) ||
-        a.sortOrder - b.sortOrder
-    )
+    .map((todo) => ({ todo, due: dueStatus(todo.dueDate, now) }))
+    .filter((d): d is { todo: LocalTodoItem; due: NonNullable<typeof d.due> } => d.due !== null && d.due.state !== "future")
+    .sort((a, b) => a.due.day.localeCompare(b.due.day) || mine(b.todo) - mine(a.todo) || a.todo.sortOrder - b.todo.sortOrder)
   const otherOpen = openTodos.length - dueTodos.length
 
-  const upcoming = upcomingOccurrences(events, 3)
+  const upcoming = upcomingOccurrences(events, 3, 60, now)
 
   function complete(todo: LocalTodoItem) {
     void setTodoCompleted(todo.id, true)
@@ -99,7 +83,7 @@ export function DashboardClient() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{getGreeting(meta.me.name)}</h1>
+      <h1 className="text-2xl font-bold">{getGreeting(meta.me.name, now)}</h1>
 
       {/* Gjøremål i dag */}
       <section className="space-y-2">
@@ -109,8 +93,8 @@ export function DashboardClient() {
             <p className="text-sm text-muted-foreground p-4">Ingen frister i dag 🎉</p>
           ) : (
             <ul className="divide-y divide-border">
-              {dueTodos.map((todo) => {
-                const overdue = dueKey(todo)! < todayKey
+              {dueTodos.map(({ todo, due }) => {
+                const overdue = due.state === "overdue"
                 return (
                   <li key={todo.id} className="flex items-center gap-3 px-3 min-h-[52px]">
                     <button
@@ -125,12 +109,12 @@ export function DashboardClient() {
                     <div className="flex-1 min-w-0 py-2">
                       <p className="text-sm truncate">{todo.title}</p>
                       <p className={cn("text-xs", overdue ? "text-destructive" : "text-muted-foreground")}>
-                        {overdue ? `Forfalt ${format(new Date(todo.dueDate!), "d. MMM", { locale: nb })}` : "I dag"}
+                        {overdue ? `Forfalt ${due.label}` : "I dag"}
                       </p>
                     </div>
                     {todo.assignedTo && (
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                        <Avatar person={todo.assignedTo} />
+                        <PersonAvatar person={todo.assignedTo} />
                         {todo.assignedTo.id === meta.me.id ? "Deg" : (todo.assignedTo.name?.split(" ")[0] ?? "")}
                       </span>
                     )}
@@ -184,8 +168,8 @@ export function DashboardClient() {
           ) : (
             <ul className="divide-y divide-border">
               {upcoming.map((occ) => {
-                // An ongoing multi-day event is shown as today
-                const shownDay = occ.start < new Date() && occ.end > new Date() ? new Date() : occ.start
+                // An event that is already under way is shown as today
+                const shownDay = occ.start < now ? now : occ.start
                 return (
                   <li key={occ.key} className="flex items-center gap-3 px-4 py-3">
                     <span
@@ -195,7 +179,7 @@ export function DashboardClient() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{occ.event.title}</p>
                       <p className="text-xs text-muted-foreground first-letter:uppercase">
-                        {dayLabel(shownDay)} · {occurrenceTimeLabel(occ, shownDay)}
+                        {dayLabel(shownDay, now)} · {occurrenceTimeLabel(occ, shownDay)}
                       </p>
                     </div>
                   </li>
@@ -218,8 +202,8 @@ export function DashboardClient() {
                 {groceries.length} {groceries.length === 1 ? "vare" : "varer"} å handle
               </p>
               <p className="text-xs text-muted-foreground truncate mt-0.5">
-                {groceries.slice(0, 5).map((g) => g.name).join(", ")}
-                {groceries.length > 5 && ` +${groceries.length - 5}`}
+                {groceryPreview.slice(0, 5).map((g) => g.name).join(", ")}
+                {groceryPreview.length > 5 && ` +${groceryPreview.length - 5}`}
               </p>
             </>
           )}

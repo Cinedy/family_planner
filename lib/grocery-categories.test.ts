@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_CATEGORY_ORDER, guessCategory, orderedCategories } from "./grocery-categories"
+import { DEFAULT_CATEGORY_ORDER, groupBySection, guessCategory, orderedCategories } from "./grocery-categories"
 
 describe("guessCategory", () => {
   it.each([
@@ -38,5 +38,31 @@ describe("orderedCategories", () => {
     expect(keys.slice(0, 2)).toEqual(["meieri", "brod"])
     expect(keys).toHaveLength(DEFAULT_CATEGORY_ORDER.length)
     expect(new Set(keys)).toEqual(new Set(DEFAULT_CATEGORY_ORDER))
+  })
+})
+
+describe("groupBySection", () => {
+  const item = (name: string, sortOrder: number, category: string | null = null) => ({
+    name,
+    category,
+    sortOrder,
+    createdAt: "2026-11-15T10:00:00.000Z",
+  })
+
+  it("groups in the family's store order and keeps the drag order inside a section", () => {
+    const sections = groupBySection(
+      [item("Såpe", 0), item("Bananer", 3), item("Melk", 1), item("Epler", 2)],
+      ["meieri", "frukt-gront"],
+      {}
+    )
+    expect(sections.map((s) => [s.category.key, s.items.map((i) => i.name)])).toEqual([
+      ["meieri", ["Melk"]],
+      ["frukt-gront", ["Epler", "Bananer"]],
+      ["hus-hygiene", ["Såpe"]],
+    ])
+  })
+
+  it("uses a stored section over the guess", () => {
+    expect(groupBySection([item("Melk", 0, "annet")], [], {})[0].category.key).toBe("annet")
   })
 })

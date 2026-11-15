@@ -228,3 +228,14 @@ describe("dayKey", () => {
     expect(dayKey(at("2026-11-20T12:00:00"))).toBe("2026-11-20")
   })
 })
+
+describe("upcomingOccurrences", () => {
+  it("leaves out events that are already over, but keeps ongoing ones", async () => {
+    const { upcomingOccurrences } = await import("./calendar-utils")
+    const morning = fromForm({ title: "Frokostmøte", date: "2026-11-15", startTime: "08:00", endTime: "09:00" })
+    const trip = fromForm({ title: "Hytta", date: "2026-11-14", endDate: "2026-11-16", allDay: "true" })
+    const evening = fromForm({ title: "Kino", date: "2026-11-15", startTime: "19:00", endTime: "21:00" })
+    const now = at("2026-11-15T15:00:00")
+    expect(upcomingOccurrences([morning, trip, evening], 3, 60, now).map((o) => o.event.title)).toEqual(["Hytta", "Kino"])
+  })
+})

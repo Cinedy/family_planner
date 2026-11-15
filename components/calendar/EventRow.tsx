@@ -1,6 +1,7 @@
 "use client"
 
 import { RotateCcw } from "lucide-react"
+import { PersonAvatar } from "@/components/PersonAvatar"
 import { occurrenceTimeLabel, type Occurrence } from "@/lib/calendar-utils"
 
 interface EventRowProps {
@@ -31,17 +32,7 @@ export function EventRow({ occurrence, day, onClick }: EventRowProps) {
       {event.attendees.length > 0 && (
         <div className="flex -space-x-1.5 shrink-0">
           {event.attendees.slice(0, 3).map((a) => (
-            <span
-              key={a.userId}
-              className="size-5 rounded-full bg-muted border border-background flex items-center justify-center text-[10px] font-medium overflow-hidden"
-            >
-              {a.user.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.user.image} alt={a.user.name ?? ""} className="size-full object-cover" />
-              ) : (
-                (a.user.name?.[0] ?? "?").toUpperCase()
-              )}
-            </span>
+            <PersonAvatar key={a.userId} person={a.user} />
           ))}
           {event.attendees.length > 3 && (
             <span className="size-5 rounded-full bg-muted border border-background flex items-center justify-center text-[10px]">
