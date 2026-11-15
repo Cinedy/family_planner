@@ -146,6 +146,7 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
         allDay: op.allDay,
         color: op.color,
         recurrence: op.recurrence,
+        ...(op.recurrenceExceptions && { recurrenceExceptions: op.recurrenceExceptions }),
       }
       if (existing) {
         await tx.eventAttendee.deleteMany({ where: { eventId: op.id } })

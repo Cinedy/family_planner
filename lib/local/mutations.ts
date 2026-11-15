@@ -2,7 +2,7 @@ import { fromZonedTime } from "date-fns-tz"
 import type { Table } from "dexie"
 import { db, getMeta } from "@/lib/local/db"
 import { requestSync } from "@/lib/local/sync"
-import { eventFieldsFromForm, TIMEZONE, type EventFormValues } from "@/lib/calendar-utils"
+import { dayKey, eventFieldsFromForm, TIMEZONE, type EventFormValues } from "@/lib/calendar-utils"
 import type { SyncOp } from "@/lib/sync/ops"
 import { guessCategory } from "@/lib/grocery-categories"
 import { normalizeName } from "@/lib/ingredients"
@@ -231,26 +231,64 @@ export function reorderTodoItems(ids: string[]) {
 
 // ─── Kalender ──────────────────────────────────────────────────────────────
 
+function eventOp(event: SerializedEvent): SyncOp {
+  return {
+    type: "event.upsert",
+    ...pick(event, ["id", "title", "description", "startTime", "endTime", "allDay", "color", "recurrence", "recurrenceExceptions"]),
+    attendeeIds: event.attendees.map((a) => a.userId),
+  }
+}
+
+async function buildEvent(existing: SerializedEvent | null, values: EventFormValues): Promise<SerializedEvent> {
+  const meta = await getMeta()
+  if (!meta) throw new Error("Ikke synkronisert ennå")
+  const members = await db.members.bulkGet(values.attendeeIds ?? [])
+  return {
+    id: existing?.id ?? newId(),
+    ...eventFieldsFromForm(values),
+    recurrenceExceptions: existing?.recurrenceExceptions ?? [],
+    familyId: meta.familyId,
+    createdById: existing?.createdById ?? meta.me.id,
+    createdBy: existing?.createdBy ?? { id: meta.me.id, name: meta.me.name, image: meta.me.image },
+    attendees: members.filter((m) => m !== undefined).map((m) => ({ userId: m.id, user: m })),
+  }
+}
+
+/** Creates an event, or changes a whole event / repeating series. */
 export function saveEvent(existing: SerializedEvent | null, values: EventFormValues) {
   return change([db.events, db.members, db.meta], async (queue) => {
-    const meta = await getMeta()
-    if (!meta) throw new Error("Ikke synkronisert ennå")
-
-    const fields = eventFieldsFromForm(values)
-    const attendeeIds = values.attendeeIds ?? []
-    const members = await db.members.bulkGet(attendeeIds)
-    const event: SerializedEvent = {
-      id: existing?.id ?? newId(),
-      ...fields,
-      familyId: meta.familyId,
-      createdById: existing?.createdById ?? meta.me.id,
-      createdBy: existing?.createdBy ?? { id: meta.me.id, name: meta.me.name, image: meta.me.image },
-      attendees: members
-        .filter((m) => m !== undefined)
-        .map((m) => ({ userId: m.id, user: m })),
-    }
+    const event = await buildEvent(existing, values)
     await db.events.put(event)
-    queue({ type: "event.upsert", id: event.id, ...fields, attendeeIds })
+    queue(eventOp(event))
+  })
+}
+
+/**
+ * "Bare denne": changes one occurrence of a repeating event. That day is skipped in
+ * the series, and a separate one-off event with the changes takes its place.
+ */
+export function saveEventOccurrence(series: SerializedEvent, occurrenceStart: Date, values: EventFormValues) {
+  return change([db.events, db.members, db.meta], async (queue) => {
+    const skipped: SerializedEvent = {
+      ...series,
+      recurrenceExceptions: [...new Set([...(series.recurrenceExceptions ?? []), dayKey(occurrenceStart)])],
+    }
+    const oneOff = await buildEvent(null, { ...values, repeats: "false", repeatUntil: undefined })
+    await db.events.bulkPut([skipped, oneOff])
+    queue(eventOp(skipped))
+    queue(eventOp(oneOff))
+  })
+}
+
+/** "Bare denne": removes one occurrence of a repeating event. */
+export function deleteEventOccurrence(series: SerializedEvent, occurrenceStart: Date) {
+  return change([db.events], async (queue) => {
+    const skipped: SerializedEvent = {
+      ...series,
+      recurrenceExceptions: [...new Set([...(series.recurrenceExceptions ?? []), dayKey(occurrenceStart)])],
+    }
+    await db.events.put(skipped)
+    queue(eventOp(skipped))
   })
 }
 

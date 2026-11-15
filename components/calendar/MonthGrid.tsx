@@ -5,7 +5,7 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
-  endOfDay,
+  addDays,
   eachDayOfInterval,
   isSameMonth,
   isSameDay,
@@ -13,7 +13,7 @@ import {
   format,
 } from "date-fns"
 import { nb } from "date-fns/locale"
-import { occurrencesBetween } from "@/lib/calendar-utils"
+import { occurrencesByDay } from "@/lib/calendar-utils"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SerializedEvent } from "@/types/calendar"
@@ -29,24 +29,13 @@ interface MonthGridProps {
   onNextMonth: () => void
 }
 
-function buildEventMap(
-  events: SerializedEvent[],
-  rangeStart: Date,
-  rangeEnd: Date
-): Map<string, SerializedEvent[]> {
+/** Events per day in the grid; multi-day events appear on each of their days. */
+function buildEventMap(events: SerializedEvent[], rangeStart: Date, rangeEnd: Date): Map<string, SerializedEvent[]> {
   const map = new Map<string, SerializedEvent[]>()
-
-  function addToMap(key: string, event: SerializedEvent) {
-    const existing = map.get(key) ?? []
-    map.set(key, [...existing, event])
+  for (const [key, list] of occurrencesByDay(events, rangeStart, rangeEnd)) {
+    // One dot per event, even if it occurs twice on a day
+    map.set(key, [...new Map(list.map((o) => [o.event.id, o.event])).values()])
   }
-
-  for (const event of events) {
-    for (const start of occurrencesBetween(event, rangeStart, rangeEnd)) {
-      addToMap(format(start, "yyyy-MM-dd"), event)
-    }
-  }
-
   return map
 }
 
@@ -64,7 +53,7 @@ export function MonthGrid({
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
 
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
-  const eventMap = buildEventMap(events, gridStart, endOfDay(gridEnd))
+  const eventMap = buildEventMap(events, gridStart, addDays(gridEnd, 1))
 
   return (
     <div className="select-none">

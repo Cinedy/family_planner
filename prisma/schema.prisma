@@ -147,6 +147,8 @@ model CalendarEvent {
   allDay      Boolean   @default(false)
   color       String?
   recurrence  String?   // RRULE string for repeating events
+  // Days ("yyyy-MM-dd") a repeating event is skipped, after one occurrence was moved or deleted
+  recurrenceExceptions String[] @default([])
   createdAt   DateTime  @default(now())
 
   family    Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)

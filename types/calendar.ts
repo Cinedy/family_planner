@@ -7,6 +7,8 @@ export type SerializedEvent = {
   allDay: boolean
   color: string | null
   recurrence: string | null
+  /** Days ("yyyy-MM-dd") skipped in a repeating event */
+  recurrenceExceptions: string[]
   createdById: string
   familyId: string
   attendees: {

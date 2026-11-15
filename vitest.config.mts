@@ -10,6 +10,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // The app runs on phones in Norway; day boundaries in tests must match
+    env: { TZ: "Europe/Oslo" },
     include: ["**/*.test.ts"],
     exclude: ["node_modules", ".next", "lib/generated"],
   },

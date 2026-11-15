@@ -147,3 +147,56 @@ describe("to-do editing", () => {
     expect((await db.todoItems.get(done.id))?.completed).toBe(true)
   })
 })
+
+describe("repeating events", () => {
+  beforeEach(async () => {
+    await db.meta.put({
+      key: "meta",
+      me: { id: "me", name: "Silje", email: null, image: null },
+      role: "admin",
+      familyId: "fam",
+      familyName: "Familien",
+      staples: [],
+      categoryOrder: [],
+      categoryHints: {},
+      lastSyncedAt: "2026-11-15T10:00:00.000Z",
+    })
+  })
+
+  const weekly = { title: "Fotball", date: "2026-11-02", startTime: "17:00", repeats: "true" as const, recurrenceType: "weekly" as const }
+
+  it("«Bare denne»: skips that day in the series and adds a one-off event", async () => {
+    await m.saveEvent(null, weekly)
+    const [series] = await db.events.toArray()
+    await db.outbox.clear()
+
+    const occ = new Date("2026-11-16T16:00:00.000Z") // Mon 16 Nov 17:00 in Oslo
+    await m.saveEventOccurrence(series, occ, { ...weekly, date: "2026-11-17", startTime: "18:00" })
+
+    const events = await db.events.toArray()
+    const updated = events.find((e) => e.id === series.id)!
+    const oneOff = events.find((e) => e.id !== series.id)!
+    expect(updated.recurrenceExceptions).toEqual(["2026-11-16"])
+    expect(updated.recurrence).toBe(series.recurrence)
+    expect(oneOff).toMatchObject({ title: "Fotball", recurrence: null, startTime: "2026-11-17T17:00:00.000Z" })
+    expect((await ops()).map((o) => o.type)).toEqual(["event.upsert", "event.upsert"])
+  })
+
+  it("«Bare denne» delete only skips that day", async () => {
+    await m.saveEvent(null, weekly)
+    const [series] = await db.events.toArray()
+    await m.deleteEventOccurrence(series, new Date("2026-11-09T16:00:00.000Z"))
+    const after = await db.events.toArray()
+    expect(after).toHaveLength(1)
+    expect(after[0].recurrenceExceptions).toEqual(["2026-11-09"])
+  })
+
+  it("keeps skipped days when the whole series is edited", async () => {
+    await m.saveEvent(null, weekly)
+    const [series] = await db.events.toArray()
+    await m.deleteEventOccurrence(series, new Date("2026-11-09T16:00:00.000Z"))
+    const withSkip = (await db.events.get(series.id))!
+    await m.saveEvent(withSkip, { ...weekly, title: "Fotballtrening" })
+    expect(await db.events.get(series.id)).toMatchObject({ title: "Fotballtrening", recurrenceExceptions: ["2026-11-09"] })
+  })
+})

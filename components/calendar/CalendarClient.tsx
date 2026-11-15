@@ -1,75 +1,148 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useLiveQuery } from "dexie-react-hooks"
-import { addMonths, subMonths, startOfMonth } from "date-fns"
+import { addMonths, startOfMonth, subMonths } from "date-fns"
+import { Plus } from "lucide-react"
 import { MonthGrid } from "./MonthGrid"
 import { DayEventList } from "./DayEventList"
+import { AgendaList } from "./AgendaList"
 import { EventSheet } from "./EventSheet"
 import { db } from "@/lib/local/db"
 import { useMeta } from "@/components/sync/SyncProvider"
+import { cn } from "@/lib/utils"
+import type { Occurrence } from "@/lib/calendar-utils"
 import type { SerializedEvent } from "@/types/calendar"
+
+type View = "month" | "list"
+
+type SheetState = {
+  key: number
+  open: boolean
+  event: SerializedEvent | null
+  occurrenceStart: Date | null
+  defaultDate: Date
+}
 
 export function CalendarClient() {
   const meta = useMeta()
   const events = useLiveQuery(() => db.events.toArray(), [], [])
   const familyMembers = useLiveQuery(() => db.members.toArray(), [], [])
+  const [view, setView] = useState<View>("month")
+  const [person, setPerson] = useState<string | null>(null)
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()))
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [editingEvent, setEditingEvent] = useState<SerializedEvent | null>(null)
-  const [createDate, setCreateDate] = useState<Date>(new Date())
+  const [selectedDate, setSelectedDate] = useState(() => new Date())
+  // A new key per opening remounts the form with fresh values
+  const openCount = useRef(0)
+  const [sheet, setSheet] = useState<SheetState | null>(null)
 
-  function navigateMonth(direction: "prev" | "next") {
-    const newMonth = direction === "prev" ? subMonths(viewMonth, 1) : addMonths(viewMonth, 1)
-    setViewMonth(startOfMonth(newMonth))
+  // Filter by person: their events, plus events without attendees (for everyone)
+  const shown = person
+    ? events.filter((e) => e.attendees.length === 0 || e.attendees.some((a) => a.userId === person))
+    : events
+
+  function openEvent(occurrence: Occurrence) {
+    setSheet({
+      key: ++openCount.current,
+      open: true,
+      event: occurrence.event,
+      occurrenceStart: occurrence.event.recurrence ? occurrence.start : null,
+      defaultDate: occurrence.start,
+    })
   }
 
-  function handleDayClick(day: Date) {
-    setSelectedDate(day)
+  function createEvent() {
+    const date = view === "month" ? selectedDate : new Date()
+    setSheet({ key: ++openCount.current, open: true, event: null, occurrenceStart: null, defaultDate: date })
   }
 
-  function handleEventClick(event: SerializedEvent) {
-    setEditingEvent(event)
-    setSheetOpen(true)
-  }
-
-  function handleCreateEvent(date: Date) {
-    setCreateDate(date)
-    setEditingEvent(null)
-    setSheetOpen(true)
-  }
-
-  function handleSheetClose(open: boolean) {
-    setSheetOpen(open)
-    if (!open) setEditingEvent(null)
-  }
+  const tabClass = (active: boolean) =>
+    cn(
+      "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+      active ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+    )
+  const chipClass = (active: boolean) =>
+    cn(
+      "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors min-h-[36px]",
+      active ? "border-primary bg-primary/10 text-primary font-medium" : "border-input bg-background text-muted-foreground"
+    )
 
   return (
-    <div className="space-y-1">
-      <MonthGrid
-        viewMonth={viewMonth}
-        selectedDate={selectedDate}
-        events={events}
-        onDayClick={handleDayClick}
-        onPrevMonth={() => navigateMonth("prev")}
-        onNextMonth={() => navigateMonth("next")}
-      />
-      <DayEventList
-        selectedDate={selectedDate}
-        events={events}
-        onEventClick={handleEventClick}
-        onCreateEvent={handleCreateEvent}
-      />
-      <EventSheet
-        open={sheetOpen}
-        onOpenChange={handleSheetClose}
-        event={editingEvent}
-        defaultDate={createDate}
-        familyMembers={familyMembers}
-        currentUserId={meta.me.id}
-        isAdmin={meta.role === "admin"}
-      />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-1 p-1 bg-muted rounded-full">
+          <button onClick={() => setView("month")} className={tabClass(view === "month")}>
+            Måned
+          </button>
+          <button onClick={() => setView("list")} className={tabClass(view === "list")}>
+            Liste
+          </button>
+        </div>
+      </div>
+
+      {familyMembers.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0" role="group" aria-label="Vis hendelser for">
+          <button onClick={() => setPerson(null)} aria-pressed={person === null} className={chipClass(person === null)}>
+            Alle
+          </button>
+          {familyMembers.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setPerson(person === m.id ? null : m.id)}
+              aria-pressed={person === m.id}
+              className={chipClass(person === m.id)}
+            >
+              <span className="size-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium overflow-hidden">
+                {m.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.image} alt="" className="size-full object-cover" />
+                ) : (
+                  (m.name?.[0] ?? "?").toUpperCase()
+                )}
+              </span>
+              {m.name?.split(" ")[0] ?? "Ukjent"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {view === "month" ? (
+        <>
+          <MonthGrid
+            viewMonth={viewMonth}
+            selectedDate={selectedDate}
+            events={shown}
+            onDayClick={setSelectedDate}
+            onPrevMonth={() => setViewMonth((m) => startOfMonth(subMonths(m, 1)))}
+            onNextMonth={() => setViewMonth((m) => startOfMonth(addMonths(m, 1)))}
+          />
+          <DayEventList selectedDate={selectedDate} events={shown} onEventClick={openEvent} />
+        </>
+      ) : (
+        <AgendaList events={shown} onEventClick={openEvent} />
+      )}
+
+      <button
+        onClick={createEvent}
+        aria-label="Legg til hendelse"
+        className="fixed bottom-above-tabbar right-4 z-40 size-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+      >
+        <Plus className="size-6" />
+      </button>
+
+      {sheet && (
+        <EventSheet
+          key={sheet.key}
+          open={sheet.open}
+          onOpenChange={(open) => setSheet({ ...sheet, open })}
+          event={sheet.event}
+          occurrenceStart={sheet.occurrenceStart}
+          defaultDate={sheet.defaultDate}
+          familyMembers={familyMembers}
+          currentUserId={meta.me.id}
+          isAdmin={meta.role === "admin"}
+        />
+      )}
     </div>
   )
 }

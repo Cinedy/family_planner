@@ -74,6 +74,7 @@ export async function getSnapshot(userId: string, membership: Membership): Promi
       allDay: e.allDay,
       color: e.color,
       recurrence: e.recurrence,
+      recurrenceExceptions: e.recurrenceExceptions,
       createdById: e.createdById,
       familyId: e.familyId,
       attendees: e.attendees.map((a) => ({ userId: a.userId, user: user(a.user) })),

@@ -51,6 +51,8 @@ export const syncOpSchema = z.discriminatedUnion("type", [
     allDay: z.boolean(),
     color: z.string().max(32).nullable(),
     recurrence: z.string().max(256).nullable(),
+    // Optional so ops queued by an older app version don't clear skipped days
+    recurrenceExceptions: z.array(ymd).max(1000).optional(),
     attendeeIds: z.array(id).max(50),
   }),
   z.object({ type: z.literal("event.delete"), id }),
