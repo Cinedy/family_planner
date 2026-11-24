@@ -10,6 +10,7 @@ export default auth((req) => {
   const isPublicRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/invite") ||
+    pathname.startsWith("/personvern") ||
     // API routes check the session themselves and answer 401 (no redirect)
     pathname.startsWith("/api/")
 

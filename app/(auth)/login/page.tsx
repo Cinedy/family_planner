@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { SignInButtons } from "@/components/auth/SignInButtons"
@@ -14,8 +15,13 @@ export default async function LoginPage() {
         <CardTitle className="text-2xl">Familieplanlegger</CardTitle>
         <CardDescription>Logg inn for å se familiens planer</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <SignInButtons redirectTo="/dashboard" />
+        <p className="text-center text-xs text-muted-foreground">
+          <Link href="/personvern" className="underline underline-offset-2 hover:text-foreground">
+            Personvern
+          </Link>
+        </p>
       </CardContent>
     </Card>
   )
