@@ -1,55 +1,89 @@
 "use client"
 
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom"
-import { inviteByEmail } from "@/app/actions/family"
+import { useState } from "react"
+import { Check, Copy, Link2, Share } from "lucide-react"
+import { createInvitation } from "@/app/actions/family"
 import { Button } from "@/components/ui/button"
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" className="min-h-[44px]" disabled={pending}>
-      {pending ? "Sender..." : "Send"}
-    </Button>
-  )
-}
+export function InviteForm({ familyName }: { familyName: string }) {
+  const [link, setLink] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const canShare = typeof navigator !== "undefined" && "share" in navigator
 
-export function InviteForm() {
-  // Count successful sends; a new count remounts (and so clears) the form
-  const [state, formAction] = useActionState(
-    async (prev: (Awaited<ReturnType<typeof inviteByEmail>> & { sent: number }) | null, formData: FormData) => {
-      const result = await inviteByEmail(prev, formData)
-      return { ...result, sent: (prev?.sent ?? 0) + (result.success ? 1 : 0) }
-    },
-    null
-  )
-  const resetKey = state?.sent ?? 0
+  async function handleCreate() {
+    setPending(true)
+    setError(null)
+    try {
+      const result = await createInvitation()
+      if (result.token) setLink(`${window.location.origin}/invite/${result.token}`)
+      else setError(result.error ?? "Kunne ikke lage invitasjon. Prøv igjen.")
+    } catch {
+      setError("Du må være på nett for å lage en invitasjon.")
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function handleShare() {
+    if (!link) return
+    try {
+      await navigator.share({
+        title: "Familieplanlegger",
+        text: `Bli med i ${familyName} på Familieplanleggeren:`,
+        url: link,
+      })
+    } catch {
+      // Closing the share sheet throws; nothing to do
+    }
+  }
+
+  async function handleCopy() {
+    if (!link) return
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError("Kunne ikke kopiere. Marker lenken og kopier den manuelt.")
+    }
+  }
+
+  if (!link) {
+    return (
+      <div className="space-y-2">
+        <Button className="w-full min-h-[44px] gap-2" onClick={handleCreate} disabled={pending}>
+          <Link2 className="size-4" />
+          {pending ? "Lager lenke…" : "Lag invitasjonslenke"}
+        </Button>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-2">
-      <form key={resetKey} action={formAction}>
-        <div className="flex gap-2">
-          <input
-            name="email"
-            type="email"
-            placeholder="epost@eksempel.no"
-            required
-            className="flex-1 h-11 rounded-md border border-input bg-background px-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <SubmitButton />
-        </div>
-        {state?.fieldErrors?.email && (
-          <p className="text-sm text-destructive mt-1">{state.fieldErrors.email[0]}</p>
+    <div className="space-y-3">
+      <p className="select-all break-all rounded-md border border-border bg-muted/50 px-3 py-2 text-xs">{link}</p>
+      <div className="flex gap-2">
+        {canShare && (
+          <Button className="flex-1 min-h-[44px] gap-2" onClick={handleShare}>
+            <Share className="size-4" />
+            Del lenke
+          </Button>
         )}
-        {state?.error && (
-          <p className="text-sm text-destructive mt-1">{state.error}</p>
-        )}
-      </form>
-      {state?.success && (
-        <p className="text-sm text-green-600">
-          Invitasjon sendt til {state.sentTo}!
-        </p>
-      )}
+        <Button variant={canShare ? "outline" : "default"} className="flex-1 min-h-[44px] gap-2" onClick={handleCopy}>
+          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          {copied ? "Kopiert" : "Kopier"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Lenken kan brukes av én person og varer i 7 dager. Send en ny lenke til hver person.
+      </p>
+      <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setLink(null)}>
+        Lag en ny lenke
+      </Button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

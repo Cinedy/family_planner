@@ -33,9 +33,6 @@ export default function PrivacyPage() {
           <li>
             <strong>Det familien legger inn:</strong> hendelser, handlelister, gjøremål, middager og oppskrifter.
           </li>
-          <li>
-            <strong>Invitasjoner:</strong> e-postadressen til den som blir invitert.
-          </li>
         </ul>
       </section>
 
@@ -51,7 +48,7 @@ export default function PrivacyPage() {
         <h2 className="text-base font-semibold">Hvor det lagres</h2>
         <ul className="list-disc space-y-1 pl-5">
           <li>I en database hos Neon, i EU (Frankfurt).</li>
-          <li>Appen kjører hos Vercel. E-post med invitasjoner sendes via Resend.</li>
+          <li>Appen kjører hos Vercel.</li>
           <li>
             En kopi av familiens data lagres på telefonen din slik at appen virker uten nett. Kopien slettes når du
             logger ut.

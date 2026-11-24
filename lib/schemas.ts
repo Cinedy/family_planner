@@ -7,10 +7,6 @@ export const createFamilySchema = z.object({
     .max(64, "Familienavnet kan ikke være lengre enn 64 tegn"),
 })
 
-export const inviteByEmailSchema = z.object({
-  email: z.string().email("Ugyldig e-postadresse"),
-})
-
 // Empty date/time inputs submit "" — allow that alongside a valid value
 const optionalDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ugyldig dato").or(z.literal("")).optional()
 const optionalTime = z.string().regex(/^\d{2}:\d{2}$/, "Ugyldig tidspunkt").or(z.literal("")).optional()

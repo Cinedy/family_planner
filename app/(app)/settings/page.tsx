@@ -76,11 +76,11 @@ export default async function SettingsPage() {
             <Mail className="h-4 w-4" />
             Inviter familiemedlem
           </CardTitle>
-          <CardDescription>Send en invitasjonslenke via e-post</CardDescription>
+          <CardDescription>Lag en lenke og send den på SMS, iMessage eller e-post</CardDescription>
         </CardHeader>
         <CardContent>
           {isAdmin ? (
-            <InviteForm />
+            <InviteForm familyName={family.name} />
           ) : (
             <p className="text-sm text-muted-foreground">
               Kun administratorer kan sende invitasjoner.

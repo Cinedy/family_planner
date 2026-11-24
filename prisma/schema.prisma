@@ -122,7 +122,7 @@ model Invitation {
   id          String           @id @default(cuid())
   familyId    String
   invitedById String
-  email       String
+  email       String? // Only for email invitations; shared links have none
   token       String           @unique @default(cuid())
   status      InvitationStatus @default(pending)
   expiresAt   DateTime

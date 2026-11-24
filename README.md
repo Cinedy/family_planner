@@ -9,7 +9,7 @@ A family planner for the phone: shared calendar, grocery list, to-dos and a week
 - **Gjøremål** — to-dos with due dates and who it's assigned to
 - **Måltider** — dinner plan per week, recipe library with ingredients; add a dinner's (or the whole week's) ingredients to the grocery list, skipping basics you always have
 - **Hjem** — today's dinner, upcoming events, open to-dos and grocery count
-- Family members and invitations by email; Google sign-in (Microsoft optional)
+- Family members and invitation links (share by text/iMessage); Google sign-in (Microsoft optional)
 - Offline-first: every change shows instantly and syncs in the background
 
 ## How it works
@@ -26,7 +26,7 @@ Conflicts: last write wins. Family management, invitations and sign-in need a co
 
 ## Tech
 
-Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui on Base UI · Prisma 7 + PostgreSQL (Neon) · Auth.js v5 · Dexie · Resend · Vitest · hosted on Vercel (region `fra1`, next to the database).
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui on Base UI · Prisma 7 + PostgreSQL (Neon) · Auth.js v5 · Dexie · Vitest · hosted on Vercel (region `fra1`, next to the database).
 
 > This Next.js version has breaking changes compared to older docs — see [AGENTS.md](AGENTS.md).
 
@@ -40,9 +40,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui
    | `DATABASE_URL` | Neon connection string (the pooled one, host contains `-pooler`) |
    | `AUTH_SECRET` | `openssl rand -base64 32` |
    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client; redirect URI `…/api/auth/callback/google` |
-   | `RESEND_API_KEY`, `RESEND_FROM` | For invitation emails |
    | `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET` | Optional: shows "Fortsett med Microsoft" |
-   | `APP_URL` | Optional: base URL for invite links (defaults to the Vercel production URL) |
 
 3. `npm run dev` and open http://localhost:3000
 
@@ -73,7 +71,7 @@ When adding a field that phones sync, update the op in `lib/sync/ops.ts` (make n
 ## Known limitations
 
 - **Time zone**: times are stored in UTC and entered/shown in Europe/Oslo. The calendar grid groups days by the phone's own time zone, so it assumes the phone is set to Norwegian time (it is for this family; travelling abroad shifts which day late-evening events land on).
-- **Invitation emails** only reach the address registered on the Resend account until a domain is verified in Resend. Until then, copy the invite link from the Resend dashboard and send it yourself.
+- **Invitations** are links the admin shares (Innstillinger → "Lag invitasjonslenke"); each works for one person for 7 days. The app sends no email. To join, people need a Google account — one can be created with an existing Hotmail/Outlook address.
 - **Microsoft sign-in** requires an app registration in Azure, which needs an Azure directory; Hotmail users can instead create a Google account with their existing email address.
 
 ## Project layout
@@ -86,7 +84,7 @@ app/actions/      Server actions for family management and sign-out
 components/       UI per feature (calendar, grocery, todos, meals, …), sync provider, shadcn/ui
 lib/local/        On-device database, mutations and sync engine
 lib/sync/         Shared op definitions; server-side snapshot and apply
-lib/              Calendar/ingredient helpers, Prisma, Resend
+lib/              Calendar/ingredient/due-date helpers, Prisma
 prisma/           Schema and migrations
 public/sw.js      Service worker
 ```

@@ -6,11 +6,9 @@ import { addDays } from "date-fns"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getFamilyForUser } from "@/lib/family"
-import { resend, buildInviteEmail } from "@/lib/resend"
-import { createFamilySchema, inviteByEmailSchema } from "@/lib/schemas"
+import { createFamilySchema } from "@/lib/schemas"
 
 type ActionState = { error?: string; fieldErrors?: Record<string, string[]> }
-type InviteState = ActionState & { success?: true; sentTo?: string }
 
 export async function createFamily(
   _prev: ActionState | null,
@@ -40,56 +38,29 @@ export async function createFamily(
   redirect("/dashboard")
 }
 
-export async function inviteByEmail(
-  _prev: InviteState | null,
-  formData: FormData
-): Promise<InviteState> {
+const INVITE_DAYS = 7
+
+/**
+ * Creates an invitation the admin shares themselves (text, iMessage, …).
+ * Returns the token; the page builds the link from its own address.
+ * Each link can be used by one person, for 7 days.
+ */
+export async function createInvitation(): Promise<{ error?: string; token?: string }> {
   const session = await auth()
   if (!session) return { error: "Ikke innlogget" }
 
-  const parsed = inviteByEmailSchema.safeParse({ email: formData.get("email") })
-  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors }
-
-  const { email } = parsed.data
-
   const membership = await getFamilyForUser(session.user.id)
   if (!membership) return { error: "Du er ikke med i noen familie" }
-  if (membership.role !== "admin") return { error: "Kun administratorer kan sende invitasjoner" }
-
-  const { familyId } = membership
-  const familyName = membership.family.name
-  const invitedByName = session.user.name ?? "Et familiemedlem"
-
-  // Mark old invitations as expired so they don't block a new one
-  await prisma.invitation.updateMany({
-    where: { familyId, email, status: "pending", expiresAt: { lt: new Date() } },
-    data: { status: "expired" },
-  })
-
-  const existing = await prisma.invitation.findFirst({
-    where: { familyId, email, status: "pending" },
-  })
-  if (existing) return { error: "En invitasjon er allerede sendt til denne e-postadressen" }
+  if (membership.role !== "admin") return { error: "Kun administratorer kan invitere" }
 
   const invitation = await prisma.invitation.create({
     data: {
-      familyId,
+      familyId: membership.familyId,
       invitedById: session.user.id,
-      email,
-      expiresAt: addDays(new Date(), 7),
+      expiresAt: addDays(new Date(), INVITE_DAYS),
     },
   })
-
-  const { error } = await resend.emails.send(
-    buildInviteEmail({ email, familyName, invitedByName, token: invitation.token })
-  )
-
-  if (error) {
-    await prisma.invitation.delete({ where: { id: invitation.id } })
-    return { error: "Kunne ikke sende e-post. Prøv igjen." }
-  }
-
-  return { success: true, sentTo: email }
+  return { token: invitation.token }
 }
 
 export async function acceptInvitation(token: string): Promise<void> {
