@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getFamilyForUser } from "@/lib/family"
@@ -5,39 +6,81 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SignInButtons } from "@/components/auth/SignInButtons"
 import { AcceptInvitationForm } from "@/components/family/accept-invitation-form"
 
-export default async function InvitePage({
-  params,
+function Message({
+  emoji,
+  title,
+  children,
+  action,
 }: {
-  params: Promise<{ token: string }>
+  emoji: string
+  title: string
+  children: React.ReactNode
+  action?: { href: string; label: string }
 }) {
+  return (
+    <Card className="w-full max-w-sm">
+      <CardHeader className="text-center">
+        <div className="text-4xl mb-2">{emoji}</div>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{children}</CardDescription>
+      </CardHeader>
+      {action && (
+        <CardContent>
+          <Link
+            href={action.href}
+            className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium"
+          >
+            {action.label}
+          </Link>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
+export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
 
-  const invitation = await prisma.invitation.findUnique({
-    where: { token },
-    include: { family: true, invitedBy: true },
-  })
+  const [invitation, session] = await Promise.all([
+    prisma.invitation.findUnique({ where: { token }, include: { family: true, invitedBy: true } }),
+    auth(),
+  ])
+  const membership = session?.user?.id ? await getFamilyForUser(session.user.id) : null
 
-  const isValid =
-    invitation &&
-    invitation.status === "pending" &&
-    invitation.expiresAt > new Date()
-
-  if (!isValid) {
+  // Already in the inviting family: the link has done its job, whatever its state.
+  // (People often tap the link again in Messages after joining.)
+  if (invitation && membership?.familyId === invitation.familyId) {
     return (
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="text-4xl mb-2">⛔</div>
-          <CardTitle>Ugyldig invitasjon</CardTitle>
-          <CardDescription>
-            Denne invitasjonslenken er ugyldig eller har utløpt.
-            Be om en ny invitasjon fra familieadministratoren.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <Message emoji="✅" title="Du er allerede med!" action={{ href: "/dashboard", label: "Gå til appen" }}>
+        Du er medlem av {invitation.family.name}.
+      </Message>
     )
   }
 
-  const session = await auth()
+  if (!invitation) {
+    return (
+      <Message emoji="🔗" title="Fant ikke invitasjonen">
+        Lenken er ufullstendig eller feil. Sjekk at hele lenken ble med, eller be om en ny lenke.
+      </Message>
+    )
+  }
+
+  if (invitation.status === "accepted") {
+    return (
+      <Message emoji="⛔" title="Lenken er allerede brukt">
+        Hver invitasjonslenke kan bare brukes av én person. Be {invitation.invitedBy.name ?? "den som inviterte deg"} om en
+        ny lenke.
+      </Message>
+    )
+  }
+
+  if (invitation.status === "expired" || invitation.expiresAt < new Date()) {
+    return (
+      <Message emoji="⌛" title="Lenken har utløpt">
+        Invitasjonslenker varer i 7 dager. Be {invitation.invitedBy.name ?? "den som inviterte deg"} om en ny lenke.
+      </Message>
+    )
+  }
 
   if (!session) {
     return (
@@ -56,51 +99,12 @@ export default async function InvitePage({
     )
   }
 
-  const currentMembership = await getFamilyForUser(session.user.id)
-
-  if (currentMembership && currentMembership.familyId !== invitation.familyId) {
+  if (membership) {
     return (
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="text-4xl mb-2">👪</div>
-          <CardTitle>Du er allerede med i en familie</CardTitle>
-          <CardDescription>
-            Du er medlem av <strong>{currentMembership.family.name}</strong>. For å bli med i{" "}
-            <strong>{invitation.family.name}</strong> må du først forlate din nåværende familie
-            under Innstillinger, og deretter åpne denne lenken igjen.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <a
-            href="/settings"
-            className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium"
-          >
-            Gå til innstillinger
-          </a>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (currentMembership) {
-    return (
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="text-4xl mb-2">✅</div>
-          <CardTitle>Du er allerede med!</CardTitle>
-          <CardDescription>
-            Du er allerede et medlem av {invitation.family.name}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <a
-            href="/dashboard"
-            className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium"
-          >
-            Gå til appen
-          </a>
-        </CardContent>
-      </Card>
+      <Message emoji="👪" title="Du er allerede med i en familie" action={{ href: "/settings", label: "Gå til innstillinger" }}>
+        Du er medlem av <strong>{membership.family.name}</strong>. For å bli med i <strong>{invitation.family.name}</strong>{" "}
+        må du først forlate din nåværende familie under Innstillinger, og deretter åpne denne lenken igjen.
+      </Message>
     )
   }
 
