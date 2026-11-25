@@ -8,6 +8,7 @@ const models = [
   "groceryItem",
   "todoList",
   "todoItem",
+  "todoAssignee",
   "calendarEvent",
   "eventAttendee",
   "mealPlan",
@@ -99,25 +100,42 @@ describe("grocery sections", () => {
 })
 
 describe("todos", () => {
-  it("drops an assignee who isn't in the family", async () => {
+  const todo = { type: "todo.upsert" as const, id: "t1", title: "Handle", completed: false, dueDate: null, sortOrder: 0 }
+
+  it("assigns several family members and drops anyone outside the family", async () => {
     tx.todoList.findFirst.mockResolvedValue({ id: "todos" })
-    await run({
-      type: "todo.upsert",
-      id: "t1",
-      title: "Støvsuge",
-      completed: false,
-      dueDate: null,
-      assignedToId: "stranger",
-      sortOrder: 0,
+    await run({ ...todo, assigneeIds: ["me", "stranger", "partner", "me"] })
+    expect(tx.todoAssignee.deleteMany).toHaveBeenCalledWith({ where: { todoId: "t1" } })
+    expect(tx.todoAssignee.createMany).toHaveBeenCalledWith({
+      data: [
+        { todoId: "t1", userId: "me" },
+        { todoId: "t1", userId: "partner" },
+      ],
     })
-    expect(tx.todoItem.create.mock.calls[0][0].data.assignedToId).toBeNull()
+  })
+
+  it("understands a single assignee from an older app version", async () => {
+    tx.todoItem.findUnique.mockResolvedValue({ id: "t1", list: { familyId: "fam" } })
+    await run({ ...todo, assignedToId: "partner" })
+    expect(tx.todoAssignee.createMany).toHaveBeenCalledWith({ data: [{ todoId: "t1", userId: "partner" }] })
+
+    tx.todoAssignee.createMany.mockClear()
+    await run({ ...todo, assignedToId: null })
+    expect(tx.todoAssignee.deleteMany).toHaveBeenCalled()
+    expect(tx.todoAssignee.createMany).not.toHaveBeenCalled()
+  })
+
+  it("leaves assignees alone when the op doesn't mention them", async () => {
+    tx.todoItem.findUnique.mockResolvedValue({ id: "t1", list: { familyId: "fam" } })
+    await run(todo)
+    expect(tx.todoAssignee.deleteMany).not.toHaveBeenCalled()
   })
 })
 
 describe("to-do notes", () => {
   it("doesn't clear notes when an older app version leaves them out", async () => {
     tx.todoItem.findUnique.mockResolvedValue({ id: "t1", list: { familyId: "fam" } })
-    await run({ type: "todo.upsert", id: "t1", title: "x", completed: true, dueDate: null, assignedToId: null, sortOrder: 0 })
+    await run({ type: "todo.upsert", id: "t1", title: "x", completed: true, dueDate: null, sortOrder: 0 })
     expect(tx.todoItem.update.mock.calls[0][0].data).not.toHaveProperty("notes")
   })
 })

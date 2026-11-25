@@ -24,7 +24,8 @@ model User {
   createdEvents   CalendarEvent[]
   eventAttendees  EventAttendee[]
   todoLists       TodoList[]
-  todoItems       TodoItem[]      @relation("AssignedTo")
+  todoAssignments TodoAssignee[]
+  todoItems       TodoItem[]      @relation("AssignedTo") // deprecated, see TodoItem.assignedToId
   groceryLists    GroceryList[]
   groceryItems    GroceryItem[]
   recipes         Recipe[]
@@ -187,6 +188,8 @@ model TodoList {
 model TodoItem {
   id           String    @id @default(cuid())
   listId       String
+  // Deprecated: replaced by TodoAssignee (several people). Kept so the previous app
+  // version keeps working during a deploy; no longer read or written. Drop later.
   assignedToId String?
   title        String
   notes        String?
@@ -195,10 +198,23 @@ model TodoItem {
   sortOrder    Int       @default(0)
   createdAt    DateTime  @default(now())
 
-  list       TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
-  assignedTo User?    @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  list       TodoList       @relation(fields: [listId], references: [id], onDelete: Cascade)
+  assignedTo User?          @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignees  TodoAssignee[]
 
   @@index([listId])
+}
+
+// Who a to-do is assigned to (any number of family members)
+model TodoAssignee {
+  todoId String
+  userId String
+
+  todo TodoItem @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([todoId, userId])
+  @@index([userId])
 }
 
 // ─── Grocery models ───────────────────────────────────────────────────────────

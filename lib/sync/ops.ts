@@ -35,7 +35,9 @@ export const syncOpSchema = z.discriminatedUnion("type", [
     notes: z.string().max(2000).nullable().optional(),
     completed: z.boolean(),
     dueDate: isoDate.nullable(),
-    assignedToId: id.nullable(),
+    // Who it's assigned to. Older app versions send a single assignedToId instead.
+    assigneeIds: z.array(id).max(50).optional(),
+    assignedToId: id.nullable().optional(),
     sortOrder: z.number().int(),
   }),
   z.object({ type: z.literal("todo.setCompleted"), id, completed: z.boolean() }),

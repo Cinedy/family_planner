@@ -11,7 +11,8 @@ import { occurrenceTimeLabel, osloDayKey, TIMEZONE, upcomingOccurrences } from "
 import { dueStatus } from "@/lib/due-dates"
 import { groupBySection } from "@/lib/grocery-categories"
 import { useNow } from "@/lib/use-now"
-import { PersonAvatar } from "@/components/PersonAvatar"
+import { AvatarStack } from "@/components/PersonAvatar"
+import { namesLabel } from "@/lib/people"
 import { setTodoCompleted } from "@/lib/local/mutations"
 import { showUndo } from "@/lib/undo"
 import { useMeta } from "@/components/sync/SyncProvider"
@@ -67,7 +68,7 @@ export function DashboardClient() {
   const groceryPreview = groupBySection(groceries, meta.categoryOrder, meta.categoryHints).flatMap((s) => s.items)
 
   // Due today or overdue: overdue first, then the ones assigned to me, then the list order
-  const mine = (t: LocalTodoItem) => Number(t.assignedToId === meta.me.id)
+  const mine = (t: LocalTodoItem) => Number((t.assignees ?? []).some((a) => a.id === meta.me.id))
   const dueTodos = openTodos
     .map((todo) => ({ todo, due: dueStatus(todo.dueDate, now) }))
     .filter((d): d is { todo: LocalTodoItem; due: NonNullable<typeof d.due> } => d.due !== null && d.due.state !== "future")
@@ -112,10 +113,10 @@ export function DashboardClient() {
                         {overdue ? `Forfalt ${due.label}` : "I dag"}
                       </p>
                     </div>
-                    {todo.assignedTo && (
-                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                        <PersonAvatar person={todo.assignedTo} />
-                        {todo.assignedTo.id === meta.me.id ? "Deg" : (todo.assignedTo.name?.split(" ")[0] ?? "")}
+                    {(todo.assignees ?? []).length > 0 && (
+                      <span className="flex max-w-[45%] items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+                        <AvatarStack people={todo.assignees} />
+                        <span className="truncate">{namesLabel(todo.assignees, meta.me.id)}</span>
                       </span>
                     )}
                   </li>

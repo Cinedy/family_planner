@@ -20,8 +20,8 @@ export type LocalTodoItem = {
   notes: string | null
   completed: boolean
   dueDate: string | null
-  assignedToId: string | null
-  assignedTo: Member | null
+  /** Who it's assigned to (any number of family members) */
+  assignees: Member[]
   sortOrder: number
   createdAt: string
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { X } from "lucide-react"
-import { PersonAvatar } from "@/components/PersonAvatar"
+import { AvatarStack } from "@/components/PersonAvatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -72,9 +72,7 @@ export function TodoItemRow({ item, onToggle, onDelete, onEdit }: TodoItemRowPro
         )}
         <div className="flex items-center gap-1.5 mt-0.5 empty:hidden">
           {item.dueDate && !item.completed && <DueDatePill dueDate={item.dueDate} />}
-          {item.assignedTo && (
-            <PersonAvatar person={item.assignedTo} className="size-4" />
-          )}
+          <AvatarStack people={item.assignees ?? []} className="size-4" />
         </div>
       </button>
 

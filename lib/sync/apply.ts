@@ -106,7 +106,6 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
         ...(op.notes !== undefined && { notes: op.notes }),
         completed: op.completed,
         dueDate: op.dueDate ? new Date(op.dueDate) : null,
-        assignedToId: op.assignedToId && ctx.memberIds.has(op.assignedToId) ? op.assignedToId : null,
         sortOrder: op.sortOrder,
       }
       if (existing) {
@@ -114,6 +113,17 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
       } else {
         const listId = await familyListId(tx, "todo", ctx)
         await tx.todoItem.create({ data: { id: op.id, listId, ...data } })
+      }
+
+      // New app versions send a list; older ones a single person (or null)
+      const requested =
+        op.assigneeIds ?? (op.assignedToId !== undefined ? (op.assignedToId ? [op.assignedToId] : []) : undefined)
+      if (requested) {
+        const assigneeIds = [...new Set(requested)].filter((userId) => ctx.memberIds.has(userId))
+        await tx.todoAssignee.deleteMany({ where: { todoId: op.id } })
+        if (assigneeIds.length) {
+          await tx.todoAssignee.createMany({ data: assigneeIds.map((userId) => ({ todoId: op.id, userId })) })
+        }
       }
       return
     }

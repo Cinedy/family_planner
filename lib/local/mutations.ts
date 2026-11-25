@@ -33,8 +33,14 @@ const groceryUpsert = (item: LocalGroceryItem): SyncOp => ({
 })
 const todoUpsert = (item: LocalTodoItem): SyncOp => ({
   type: "todo.upsert",
-  ...pick(item, ["id", "title", "notes", "completed", "dueDate", "assignedToId", "sortOrder"]),
+  ...pick(item, ["id", "title", "notes", "completed", "dueDate", "sortOrder"]),
+  assigneeIds: (item.assignees ?? []).map((a) => a.id),
 })
+
+/** Family members for the given ids, skipping anyone no longer in the family. */
+async function membersById(ids: string[]) {
+  return (await db.members.bulkGet([...new Set(ids)])).filter((m) => m !== undefined)
+}
 const dueDateFromInput = (date: string | undefined) =>
   date ? fromZonedTime(`${date}T00:00:00`, TIMEZONE).toISOString() : null
 
@@ -150,18 +156,16 @@ export function clearCheckedGroceryItems() {
 
 // ─── Gjøremål ──────────────────────────────────────────────────────────────
 
-export function addTodoItem(input: { title: string; notes?: string; dueDate?: string; assignedToId?: string | null }) {
+export function addTodoItem(input: { title: string; notes?: string; dueDate?: string; assigneeIds?: string[] }) {
   return change([db.todoItems, db.members], async (queue) => {
     const items = await db.todoItems.toArray()
-    const assignedTo = input.assignedToId ? ((await db.members.get(input.assignedToId)) ?? null) : null
     const item: LocalTodoItem = {
       id: newId(),
       title: input.title.trim(),
       notes: input.notes?.trim() || null,
       completed: false,
       dueDate: dueDateFromInput(input.dueDate),
-      assignedToId: assignedTo?.id ?? null,
-      assignedTo,
+      assignees: await membersById(input.assigneeIds ?? []),
       sortOrder: items.reduce((max, i) => Math.max(max, i.sortOrder), -1) + 1,
       createdAt: now(),
     }
@@ -173,19 +177,17 @@ export function addTodoItem(input: { title: string; notes?: string; dueDate?: st
 /** dueDate is the date input's value ("yyyy-MM-dd"), or "" for no due date. */
 export function updateTodoItem(
   id: string,
-  fields: { title: string; notes: string; dueDate: string; assignedToId: string | null }
+  fields: { title: string; notes: string; dueDate: string; assigneeIds: string[] }
 ) {
   return change([db.todoItems, db.members], async (queue) => {
     const item = await db.todoItems.get(id)
     if (!item) return
-    const assignedTo = fields.assignedToId ? ((await db.members.get(fields.assignedToId)) ?? null) : null
     const updated: LocalTodoItem = {
       ...item,
       title: fields.title.trim(),
       notes: fields.notes.trim() || null,
       dueDate: dueDateFromInput(fields.dueDate),
-      assignedToId: assignedTo?.id ?? null,
-      assignedTo,
+      assignees: await membersById(fields.assigneeIds),
     }
     await db.todoItems.put(updated)
     queue(todoUpsert(updated))

@@ -11,7 +11,10 @@ const ops = async () => (await db.outbox.toArray()).map((e) => e.op)
 beforeEach(async () => {
   await db.delete()
   await db.open()
-  await db.members.put({ id: "partner", name: "Ola", image: null })
+  await db.members.bulkPut([
+    { id: "partner", name: "Ola", image: null },
+    { id: "me", name: "Silje", image: null },
+  ])
 })
 
 describe("grocery editing", () => {
@@ -123,18 +126,20 @@ describe("to-do editing", () => {
       title: "Støvsuge stua",
       notes: " Husk under sofaen ",
       dueDate: "2026-11-20",
-      assignedToId: "partner",
+      assigneeIds: ["partner", "me", "stranger"],
     })
     expect(await db.todoItems.get(todo.id)).toMatchObject({
       title: "Støvsuge stua",
       notes: "Husk under sofaen",
       dueDate: "2026-11-19T23:00:00.000Z", // midnight in Oslo
-      assignedToId: "partner",
-      assignedTo: { id: "partner", name: "Ola", image: null },
+      assignees: [
+        { id: "partner", name: "Ola", image: null },
+        { id: "me", name: "Silje", image: null },
+      ],
     })
 
-    await m.updateTodoItem(todo.id, { title: "Støvsuge stua", notes: "", dueDate: "", assignedToId: null })
-    expect(await db.todoItems.get(todo.id)).toMatchObject({ notes: null, dueDate: null, assignedToId: null, assignedTo: null })
+    await m.updateTodoItem(todo.id, { title: "Støvsuge stua", notes: "", dueDate: "", assigneeIds: [] })
+    expect(await db.todoItems.get(todo.id)).toMatchObject({ notes: null, dueDate: null, assignees: [] })
   })
 
   it("clears only completed to-dos, and can undo it", async () => {

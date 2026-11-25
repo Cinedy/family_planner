@@ -24,13 +24,15 @@ export function TodoSheet({ open, onOpenChange, familyMembers, item, onDelete }:
   const [title, setTitle] = useState(item?.title ?? "")
   const [notes, setNotes] = useState(item?.notes ?? "")
   const [dueDate, setDueDate] = useState(dueDateInputValue(item?.dueDate ?? null))
-  const [assignedToId, setAssignedToId] = useState<string | null>(item?.assignedToId ?? null)
+  const [assigneeIds, setAssigneeIds] = useState<string[]>((item?.assignees ?? []).map((a) => a.id))
+  const toggleAssignee = (id: string) =>
+    setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-    if (item) void updateTodoItem(item.id, { title, notes, dueDate, assignedToId })
-    else void addTodoItem({ title, notes, dueDate: dueDate || undefined, assignedToId })
+    if (item) void updateTodoItem(item.id, { title, notes, dueDate, assigneeIds })
+    else void addTodoItem({ title, notes, dueDate: dueDate || undefined, assigneeIds })
     onOpenChange(false)
   }
 
@@ -90,15 +92,16 @@ export function TodoSheet({ open, onOpenChange, familyMembers, item, onDelete }:
 
           {familyMembers.length > 1 && (
             <div className="space-y-2">
-              <label className={labelClass}>Tildel til (valgfritt)</label>
+              <label className={labelClass}>Tildel til (velg én eller flere)</label>
               <div className="flex flex-wrap gap-2">
                 {familyMembers.map((member) => {
-                  const isSelected = assignedToId === member.id
+                  const isSelected = assigneeIds.includes(member.id)
                   return (
                     <button
                       key={member.id}
                       type="button"
-                      onClick={() => setAssignedToId(isSelected ? null : member.id)}
+                      onClick={() => toggleAssignee(member.id)}
+                      aria-pressed={isSelected}
                       className={cn(
                         "flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-colors min-h-[36px]",
                         isSelected

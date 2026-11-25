@@ -5,7 +5,7 @@ export async function getOrCreateTodoList(familyId: string, userId: string) {
     where: { familyId },
     include: {
       items: {
-        include: { assignedTo: true },
+        include: { assignees: { include: { user: true } } },
         orderBy: { sortOrder: "asc" },
       },
     },
@@ -20,7 +20,7 @@ export async function getOrCreateTodoList(familyId: string, userId: string) {
     },
     include: {
       items: {
-        include: { assignedTo: true },
+        include: { assignees: { include: { user: true } } },
         orderBy: { sortOrder: "asc" },
       },
     },
