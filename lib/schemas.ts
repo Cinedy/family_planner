@@ -22,6 +22,7 @@ export const createEventSchema = z.object({
   color: z.string().optional(),
   repeats: z.enum(["true", "false"]).optional(),
   recurrenceType: z.enum(["daily", "weekly", "monthly", "yearly"]).optional(),
+  repeatInterval: z.string().regex(/^\d{0,2}$/, "Skriv et tall fra 1 til 99").optional(),
   repeatUntil: optionalDate,
   attendeeIds: z.array(z.string()).optional(),
 })

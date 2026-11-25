@@ -55,6 +55,7 @@ export function EventForm({
         date: format(defaultDate, "yyyy-MM-dd"),
         allDay: "false",
         repeats: "false",
+        repeatInterval: "1",
         attendeeIds: [currentUserId],
       }
 
@@ -63,10 +64,11 @@ export function EventForm({
     defaultValues,
   })
 
-  const [allDay, repeats, selectedColor, attendeeIds, date, endDate] = useWatch({
+  const [allDay, repeats, selectedColor, attendeeIds, date, endDate, repeatInterval] = useWatch({
     control,
-    name: ["allDay", "repeats", "color", "attendeeIds", "date", "endDate"],
+    name: ["allDay", "repeats", "color", "attendeeIds", "date", "endDate", "repeatInterval"],
   })
+  const interval = Number(repeatInterval) || 1
   const isAllDay = allDay === "true"
   const doesRepeat = repeats === "true"
   const selectedAttendees = attendeeIds ?? []
@@ -226,21 +228,34 @@ export function EventForm({
       </label>
 
       {doesRepeat && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           <div className="space-y-1">
-            <label className={labelClass}>Hvor ofte</label>
-            <select {...register("recurrenceType")} className={inputClass}>
-              <option value="daily">Daglig</option>
-              <option value="weekly">Ukentlig</option>
-              <option value="monthly">Månedlig</option>
-              <option value="yearly">Årlig</option>
-            </select>
+            <label className={labelClass} htmlFor="repeatInterval">
+              Gjentas hver
+            </label>
+            <div className="flex gap-2">
+              <input
+                {...register("repeatInterval")}
+                id="repeatInterval"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={99}
+                className={cn(inputClass, "w-20 shrink-0 text-center")}
+              />
+              <select {...register("recurrenceType")} aria-label="Enhet" className={inputClass}>
+                <option value="daily">{interval === 1 ? "dag" : "dager"}</option>
+                <option value="weekly">{interval === 1 ? "uke" : "uker"}</option>
+                <option value="monthly">{interval === 1 ? "måned" : "måneder"}</option>
+                <option value="yearly">år</option>
+              </select>
+            </div>
           </div>
           <div className="space-y-1">
-            <label className={labelClass}>Gjentas til</label>
+            <label className={labelClass}>Gjentas til (valgfritt)</label>
             <input {...register("repeatUntil")} type="date" min={date} className={inputClass} />
+            <p className="text-xs text-muted-foreground">La stå tom for å gjenta for alltid.</p>
           </div>
-          <p className="col-span-2 -mt-1 text-xs text-muted-foreground">La «Gjentas til» stå tom for å gjenta for alltid.</p>
         </div>
       )}
 

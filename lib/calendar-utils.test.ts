@@ -239,3 +239,37 @@ describe("upcomingOccurrences", () => {
     expect(upcomingOccurrences([morning, trip, evening], 3, 60, now).map((o) => o.event.title)).toEqual(["Hytta", "Kino"])
   })
 })
+
+describe("repeating every N", () => {
+  it("repeats every 5 weeks on the same weekday", () => {
+    const every5 = fromForm({
+      title: "Frisør",
+      date: "2026-11-02",
+      startTime: "16:00",
+      repeats: "true",
+      recurrenceType: "weekly",
+      repeatInterval: "5",
+    })
+    expect(every5.recurrence).toBe("FREQ=WEEKLY;BYDAY=MO;INTERVAL=5")
+    expect(days(occurrencesByDay([every5], at("2026-11-01T00:00:00"), at("2027-02-01T00:00:00")))).toEqual([
+      "2026-11-02",
+      "2026-12-07",
+      "2027-01-11",
+    ])
+  })
+
+  it("leaves INTERVAL out for every 1, and reads the interval back for the form", () => {
+    const weekly = fromForm({ title: "x", date: "2026-11-02", repeats: "true", recurrenceType: "weekly", repeatInterval: "1" })
+    expect(weekly.recurrence).toBe("FREQ=WEEKLY;BYDAY=MO")
+    expect(formValuesFromEvent(weekly).repeatInterval).toBe("1")
+    const every3Months = fromForm({ title: "x", date: "2026-11-02", repeats: "true", recurrenceType: "monthly", repeatInterval: "3" })
+    expect(formValuesFromEvent(every3Months).repeatInterval).toBe("3")
+  })
+
+  it("rejects an interval that isn't a whole number from 1 to 99", () => {
+    const base = { title: "x", date: "2026-11-02", repeats: "true" as const, recurrenceType: "weekly" as const }
+    expect(validateEventForm({ ...base, repeatInterval: "0" })).toMatch(/helt tall/)
+    expect(validateEventForm({ ...base, repeatInterval: "5" })).toBeNull()
+    expect(validateEventForm({ ...base, repeatInterval: "" })).toBeNull()
+  })
+})

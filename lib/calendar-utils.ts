@@ -20,6 +20,7 @@ export type EventFormValues = {
   color?: string
   repeats?: "true" | "false"
   recurrenceType?: "daily" | "weekly" | "monthly" | "yearly"
+  repeatInterval?: string // "5" = every 5th day/week/month/year; empty or "1" = every
   repeatUntil?: string // yyyy-MM-dd, last day a repeat may start
   attendeeIds?: string[]
 }
@@ -32,6 +33,8 @@ function buildRRule(values: EventFormValues): string | null {
   if (values.repeats !== "true" || !values.recurrenceType) return null
   const type = values.recurrenceType
   let rule = type === "weekly" ? `FREQ=WEEKLY;BYDAY=${DAY_NAMES[parseISO(values.date).getDay()]}` : `FREQ=${type.toUpperCase()}`
+  const interval = Number(values.repeatInterval)
+  if (Number.isInteger(interval) && interval > 1) rule += `;INTERVAL=${interval}`
   // UNTIL is in the same "floating" Oslo time as the rest of the rule (see below)
   if (values.repeatUntil) rule += `;UNTIL=${values.repeatUntil.replaceAll("-", "")}T235959Z`
   return rule
@@ -68,6 +71,9 @@ export function eventFieldsFromForm(values: EventFormValues) {
 export function validateEventForm(values: EventFormValues): string | null {
   const fields = eventFieldsFromForm(values)
   if (fields.endTime && fields.endTime < fields.startTime) return "Slutten kan ikke være før starten."
+  if (values.repeats === "true" && values.repeatInterval && !/^[1-9]\d?$/.test(values.repeatInterval)) {
+    return "Gjentakelsen må være et helt tall fra 1 til 99."
+  }
   if (values.repeats === "true" && values.repeatUntil && values.repeatUntil < values.date) {
     return "«Gjentas til» må være etter startdatoen."
   }
@@ -109,6 +115,7 @@ export function formValuesFromEvent(event: SerializedEvent, occurrenceStart?: Da
     recurrenceType: event.recurrence
       ? (event.recurrence.match(/FREQ=(\w+)/)?.[1]?.toLowerCase() as EventFormValues["recurrenceType"])
       : undefined,
+    repeatInterval: event.recurrence?.match(/INTERVAL=(\d+)/)?.[1] ?? "1",
     repeatUntil: repeatUntil(event.recurrence),
     attendeeIds: event.attendees.map((a) => a.userId),
   }
