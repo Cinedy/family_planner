@@ -58,6 +58,7 @@ export async function getSnapshot(userId: string, membership: Membership): Promi
     todoItems: todoList.items.map((i) => ({
       id: i.id,
       title: i.title,
+      notes: i.notes,
       completed: i.completed,
       dueDate: i.dueDate?.toISOString() ?? null,
       assignedToId: i.assignedToId,

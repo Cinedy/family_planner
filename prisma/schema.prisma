@@ -189,6 +189,7 @@ model TodoItem {
   listId       String
   assignedToId String?
   title        String
+  notes        String?
   completed    Boolean   @default(false)
   dueDate      DateTime?
   sortOrder    Int       @default(0)

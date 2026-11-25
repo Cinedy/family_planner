@@ -22,14 +22,15 @@ interface TodoSheetProps {
 // The parent remounts this component (via `key`) each time it opens.
 export function TodoSheet({ open, onOpenChange, familyMembers, item, onDelete }: TodoSheetProps) {
   const [title, setTitle] = useState(item?.title ?? "")
+  const [notes, setNotes] = useState(item?.notes ?? "")
   const [dueDate, setDueDate] = useState(dueDateInputValue(item?.dueDate ?? null))
   const [assignedToId, setAssignedToId] = useState<string | null>(item?.assignedToId ?? null)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-    if (item) void updateTodoItem(item.id, { title, dueDate, assignedToId })
-    else void addTodoItem({ title, dueDate: dueDate || undefined, assignedToId })
+    if (item) void updateTodoItem(item.id, { title, notes, dueDate, assignedToId })
+    else void addTodoItem({ title, notes, dueDate: dueDate || undefined, assignedToId })
     onOpenChange(false)
   }
 
@@ -51,6 +52,18 @@ export function TodoSheet({ open, onOpenChange, familyMembers, item, onDelete }:
               className={inputClass}
               autoFocus={!item}
               required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className={labelClass}>Notater (valgfritt)</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Detaljer, lenker, hva som trengs …"
+              rows={3}
+              maxLength={2000}
+              className={cn(inputClass, "h-auto resize-none")}
             />
           </div>
 

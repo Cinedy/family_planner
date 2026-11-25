@@ -115,20 +115,26 @@ describe("grocery sections", () => {
 })
 
 describe("to-do editing", () => {
-  it("changes text, due date and assignee, and can remove the due date", async () => {
+  it("changes text, notes, due date and assignee, and can clear them", async () => {
     await m.addTodoItem({ title: "Støvsuge" })
     const [todo] = await db.todoItems.toArray()
 
-    await m.updateTodoItem(todo.id, { title: "Støvsuge stua", dueDate: "2026-11-20", assignedToId: "partner" })
+    await m.updateTodoItem(todo.id, {
+      title: "Støvsuge stua",
+      notes: " Husk under sofaen ",
+      dueDate: "2026-11-20",
+      assignedToId: "partner",
+    })
     expect(await db.todoItems.get(todo.id)).toMatchObject({
       title: "Støvsuge stua",
+      notes: "Husk under sofaen",
       dueDate: "2026-11-19T23:00:00.000Z", // midnight in Oslo
       assignedToId: "partner",
       assignedTo: { id: "partner", name: "Ola", image: null },
     })
 
-    await m.updateTodoItem(todo.id, { title: "Støvsuge stua", dueDate: "", assignedToId: null })
-    expect(await db.todoItems.get(todo.id)).toMatchObject({ dueDate: null, assignedToId: null, assignedTo: null })
+    await m.updateTodoItem(todo.id, { title: "Støvsuge stua", notes: "", dueDate: "", assignedToId: null })
+    expect(await db.todoItems.get(todo.id)).toMatchObject({ notes: null, dueDate: null, assignedToId: null, assignedTo: null })
   })
 
   it("clears only completed to-dos, and can undo it", async () => {

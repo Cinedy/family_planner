@@ -1,6 +1,6 @@
 "use client"
 
-import { GripVertical, X } from "lucide-react"
+import { X } from "lucide-react"
 import { PersonAvatar } from "@/components/PersonAvatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,21 +31,11 @@ interface TodoItemRowProps {
   onToggle: (id: string, completed: boolean) => void
   onDelete: (id: string) => void
   onEdit: (item: LocalTodoItem) => void
-  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>
 }
 
-export function TodoItemRow({ item, onToggle, onDelete, onEdit, dragHandleProps }: TodoItemRowProps) {
+export function TodoItemRow({ item, onToggle, onDelete, onEdit }: TodoItemRowProps) {
   return (
     <div className="flex items-center gap-2 px-1 min-h-[52px] group">
-      {dragHandleProps && (
-        <button
-          {...dragHandleProps}
-          className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 shrink-0 text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label="Dra for å sortere"
-        >
-          <GripVertical className="size-4" />
-        </button>
-      )}
       <button
         onClick={() => onToggle(item.id, !item.completed)}
         aria-label={item.completed ? "Merk som ikke fullført" : "Merk som fullført"}
@@ -77,7 +67,10 @@ export function TodoItemRow({ item, onToggle, onDelete, onEdit, dragHandleProps 
         >
           {item.title}
         </span>
-        <div className="flex items-center gap-1.5 mt-0.5">
+        {item.notes && (
+          <span className="block truncate text-xs text-muted-foreground mt-0.5">{item.notes.split("\n")[0]}</span>
+        )}
+        <div className="flex items-center gap-1.5 mt-0.5 empty:hidden">
           {item.dueDate && !item.completed && <DueDatePill dueDate={item.dueDate} />}
           {item.assignedTo && (
             <PersonAvatar person={item.assignedTo} className="size-4" />

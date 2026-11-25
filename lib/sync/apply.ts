@@ -103,6 +103,7 @@ async function applyOp(tx: Tx, op: SyncOp, ctx: ApplyContext): Promise<void> {
       if (existing && existing.list.familyId !== familyId) return
       const data = {
         title: op.title,
+        ...(op.notes !== undefined && { notes: op.notes }),
         completed: op.completed,
         dueDate: op.dueDate ? new Date(op.dueDate) : null,
         assignedToId: op.assignedToId && ctx.memberIds.has(op.assignedToId) ? op.assignedToId : null,

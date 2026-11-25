@@ -114,6 +114,14 @@ describe("todos", () => {
   })
 })
 
+describe("to-do notes", () => {
+  it("doesn't clear notes when an older app version leaves them out", async () => {
+    tx.todoItem.findUnique.mockResolvedValue({ id: "t1", list: { familyId: "fam" } })
+    await run({ type: "todo.upsert", id: "t1", title: "x", completed: true, dueDate: null, assignedToId: null, sortOrder: 0 })
+    expect(tx.todoItem.update.mock.calls[0][0].data).not.toHaveProperty("notes")
+  })
+})
+
 describe("calendar", () => {
   const upsert = (attendeeIds: string[]): SyncOp => ({
     type: "event.upsert",

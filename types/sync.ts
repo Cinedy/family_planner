@@ -17,6 +17,7 @@ export type LocalGroceryItem = {
 export type LocalTodoItem = {
   id: string
   title: string
+  notes: string | null
   completed: boolean
   dueDate: string | null
   assignedToId: string | null

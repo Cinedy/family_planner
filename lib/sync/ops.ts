@@ -31,6 +31,8 @@ export const syncOpSchema = z.discriminatedUnion("type", [
     type: z.literal("todo.upsert"),
     id,
     title: z.string().min(1).max(256),
+    // Optional so ops queued by an older app version don't clear the notes
+    notes: z.string().max(2000).nullable().optional(),
     completed: z.boolean(),
     dueDate: isoDate.nullable(),
     assignedToId: id.nullable(),
@@ -38,6 +40,7 @@ export const syncOpSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("todo.setCompleted"), id, completed: z.boolean() }),
   z.object({ type: z.literal("todo.delete"), id }),
+  // No longer sent (to-dos sort by due date); still accepted from older app versions
   z.object({ type: z.literal("todo.reorder"), ids: z.array(id).max(1000) }),
 
   // Kalender

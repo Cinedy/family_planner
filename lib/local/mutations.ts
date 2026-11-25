@@ -33,7 +33,7 @@ const groceryUpsert = (item: LocalGroceryItem): SyncOp => ({
 })
 const todoUpsert = (item: LocalTodoItem): SyncOp => ({
   type: "todo.upsert",
-  ...pick(item, ["id", "title", "completed", "dueDate", "assignedToId", "sortOrder"]),
+  ...pick(item, ["id", "title", "notes", "completed", "dueDate", "assignedToId", "sortOrder"]),
 })
 const dueDateFromInput = (date: string | undefined) =>
   date ? fromZonedTime(`${date}T00:00:00`, TIMEZONE).toISOString() : null
@@ -150,13 +150,14 @@ export function clearCheckedGroceryItems() {
 
 // ─── Gjøremål ──────────────────────────────────────────────────────────────
 
-export function addTodoItem(input: { title: string; dueDate?: string; assignedToId?: string | null }) {
+export function addTodoItem(input: { title: string; notes?: string; dueDate?: string; assignedToId?: string | null }) {
   return change([db.todoItems, db.members], async (queue) => {
     const items = await db.todoItems.toArray()
     const assignedTo = input.assignedToId ? ((await db.members.get(input.assignedToId)) ?? null) : null
     const item: LocalTodoItem = {
       id: newId(),
       title: input.title.trim(),
+      notes: input.notes?.trim() || null,
       completed: false,
       dueDate: dueDateFromInput(input.dueDate),
       assignedToId: assignedTo?.id ?? null,
@@ -170,7 +171,10 @@ export function addTodoItem(input: { title: string; dueDate?: string; assignedTo
 }
 
 /** dueDate is the date input's value ("yyyy-MM-dd"), or "" for no due date. */
-export function updateTodoItem(id: string, fields: { title: string; dueDate: string; assignedToId: string | null }) {
+export function updateTodoItem(
+  id: string,
+  fields: { title: string; notes: string; dueDate: string; assignedToId: string | null }
+) {
   return change([db.todoItems, db.members], async (queue) => {
     const item = await db.todoItems.get(id)
     if (!item) return
@@ -178,6 +182,7 @@ export function updateTodoItem(id: string, fields: { title: string; dueDate: str
     const updated: LocalTodoItem = {
       ...item,
       title: fields.title.trim(),
+      notes: fields.notes.trim() || null,
       dueDate: dueDateFromInput(fields.dueDate),
       assignedToId: assignedTo?.id ?? null,
       assignedTo,
@@ -219,13 +224,6 @@ export function clearCompletedTodos() {
     await db.todoItems.bulkDelete(items.map((i) => i.id))
     items.forEach((i) => queue({ type: "todo.delete", id: i.id }))
     return items
-  })
-}
-
-export function reorderTodoItems(ids: string[]) {
-  return change([db.todoItems], async (queue) => {
-    await Promise.all(ids.map((id, index) => db.todoItems.update(id, { sortOrder: index })))
-    queue({ type: "todo.reorder", ids })
   })
 }
 

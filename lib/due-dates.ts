@@ -27,5 +27,18 @@ export function dueStatus(dueDate: string | null, now = new Date()): DueStatus |
   }
 }
 
+/** To-do list order: earliest due date first (overdue on top), then no due date; ties by when added. */
+export const byDueDate = (
+  a: { dueDate: string | null; createdAt: string },
+  b: { dueDate: string | null; createdAt: string }
+) => {
+  if (a.dueDate !== b.dueDate) {
+    if (!a.dueDate) return 1
+    if (!b.dueDate) return -1
+    return a.dueDate.localeCompare(b.dueDate) // ISO strings sort chronologically
+  }
+  return a.createdAt.localeCompare(b.createdAt)
+}
+
 /** Stored due date → the date input's "yyyy-MM-dd" (Oslo), or "" for none. */
 export const dueDateInputValue = (dueDate: string | null) => (dueDate ? osloDayKey(new Date(dueDate)) : "")
